@@ -4,11 +4,20 @@
 
 ## About this project
 
-AI plugins and integrations that enable SAP LeanIX customers to interact with SAP LeanIX through natural language using MCP (Model Context Protocol).
+A collection of [Agent Skills](https://agentskills.io) for SAP LeanIX — reusable, portable instructions that extend AI coding agents with LeanIX-specific workflows and domain knowledge. Skills work across a wide range of AI tools, including Claude Code, Cursor, GitHub Copilot, VS Code, OpenAI Codex, Gemini CLI, and [many others](https://agentskills.io/clients).
+
+The skills in this repository are designed to work with the [LeanIX MCP Server](https://github.com/SAP/leanix-mcp), which exposes LeanIX capabilities as tools that AI agents can call.
 
 ## Requirements and Setup
 
-*Insert a short description what is required to get your project running...*
+Skills follow the [Agent Skills](https://agentskills.io) open standard and can be used with any compatible AI agent. Installation steps vary per tool — consult your agent's documentation:
+
+- [Claude Code](https://code.claude.com/docs/en/skills)
+- [Cursor](https://cursor.com/docs/context/skills)
+- [GitHub Copilot / VS Code](https://code.visualstudio.com/docs/copilot/customization/agent-skills)
+- [OpenAI Codex](https://developers.openai.com/codex/skills/)
+- [Gemini CLI](https://geminicli.com/docs/cli/skills/)
+- [Other supported agents](https://agentskills.io/clients)
 
 ## Support, Feedback, Contributing
 
