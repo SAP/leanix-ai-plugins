@@ -6,34 +6,47 @@ All members of the project community must abide by the [SAP Open Source Code of 
 Only by respecting each other we can develop a productive, collaborative community.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting [a project maintainer](REUSE.toml).
 
-## Engaging in Our Project
+## What Can You Contribute?
 
-We use GitHub to manage reviews of pull requests.
+This repository hosts [Agent Skills](https://agentskills.io) — reusable, portable instructions that extend AI coding agents with LeanIX-specific workflows and domain knowledge. Skills work across a wide range of AI tools, including Claude Code, Cursor, GitHub Copilot, VS Code, OpenAI Codex, Gemini CLI, and others.
 
-* If you are a new contributor, see: [Steps to Contribute](#steps-to-contribute)
+Contributions we welcome:
 
-* Before implementing your change, create an issue that describes the problem you would like to solve or the code that should be enhanced. Please note that you are willing to work on that issue.
+- **New skills** that help users work more effectively with the LeanIX MCP server or the LeanIX platform in general
+- **Improvements to existing skills** — better descriptions, clearer instructions, additional examples, or bug fixes
+- **Documentation improvements** — corrections, clarifications, or better setup instructions
 
-* The team will review the issue and decide whether it should be implemented as a pull request. In that case, they will assign the issue to you. If the team decides against picking up the issue, the team will post a comment with an explanation.
+## How to Contribute
 
-## Steps to Contribute
+Open a pull request. For bugs and improvements to existing skills, go ahead directly. For new skills, opening a GitHub issue first to discuss the idea is welcome but not required.
 
-Should you wish to work on an issue, please claim it first by commenting on the GitHub issue that you want to work on. This is to prevent duplicated efforts from other contributors on the same issue.
+### Skill Structure
 
-If you have questions about one of the issues, please comment on them, and one of the maintainers will clarify.
+Skills follow the [Agent Skills](https://agentskills.io) open standard. Each skill is a directory containing a `SKILL.md` file:
 
-## Contributing Code or Documentation
+```
+skill-name/
+├── SKILL.md          # Required: metadata + instructions
+├── scripts/          # Optional: executable code
+├── references/       # Optional: documentation
+├── assets/           # Optional: templates, resources
+└── ...               # Any additional files or directories
+```
 
-You are welcome to contribute code in order to fix a bug or to implement a new feature that is logged as an issue.
+See [agentskills.io](https://agentskills.io) for the full format specification.
 
-The following rule governs code contributions:
+### Pull Requests
 
-* Contributions must be licensed under the [Apache 2.0 License](./LICENSE).
-* Due to legal reasons, contributors will be asked to accept a Developer Certificate of Origin (DCO) when they create the first pull request to this project. This happens in an automated fashion during the submission process. SAP uses [the standard DCO text of the Linux Foundation](https://developercertificate.org/).
-* Contributions must follow our [guidelines on AI-generated code](https://github.com/SAP/.github/blob/main/CONTRIBUTING_USING_GENAI.md) in case you are using such tools.
+Include a title that describes what the skill does or what changed, and a brief description with an example showing the skill in action. Do not include sensitive or proprietary data in skill files or examples.
 
-## Issues and Planning
+## Legal Requirements
 
-* We use GitHub issues to track bugs and enhancement requests.
+**License.** All contributions must be licensed under the [Apache 2.0 License](./LICENSE).
 
-* Please provide as much context as possible when you open an issue. The information you provide must be comprehensive enough to reproduce that issue for the assignee.
+**Developer Certificate of Origin (DCO).** When you create your first pull request, you will be asked to accept the DCO. This happens automatically during submission. SAP uses [the standard DCO text of the Linux Foundation](https://developercertificate.org/).
+
+**AI-generated content.** Contributions that were created with AI assistance must follow the [SAP guidelines on AI-generated code](https://github.com/SAP/.github/blob/main/CONTRIBUTING_USING_GENAI.md).
+
+## Issues and Bug Reports
+
+Use GitHub issues to report bugs or request enhancements. Include enough context for someone unfamiliar with your setup to understand the problem — what you expected, what happened instead, and which agent and skill were involved.
