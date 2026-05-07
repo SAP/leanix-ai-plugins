@@ -8,6 +8,12 @@ A collection of [Agent Skills](https://agentskills.io) for SAP LeanIX — reusab
 
 The skills in this repository are designed to work with the [LeanIX MCP Server](https://github.com/SAP/leanix-mcp), which exposes LeanIX capabilities as tools that AI agents can call.
 
+## Available Skills
+
+| Skill | Description |
+|-------|-------------|
+| [leanix-automations](skills/leanix-automations/) | Build, debug, and deploy LeanIX automation scripts |
+
 ## Requirements and Setup
 
 Skills follow the [Agent Skills](https://agentskills.io) open standard and can be used with any compatible AI agent. Installation steps vary per tool — consult your agent's documentation:
