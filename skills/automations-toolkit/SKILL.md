@@ -1,5 +1,5 @@
 ---
-name: leanix-automations
+name: automations-toolkit
 description: >-
   Builds, debugs, and optimizes LeanIX automations using built-in actions
   when possible and scripts only when needed. Covers trigger types, action

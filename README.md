@@ -12,7 +12,7 @@ The skills in this repository are designed to work with the [LeanIX MCP Server](
 
 | Skill | Description |
 |-------|-------------|
-| [leanix-automations](skills/leanix-automations/) | Build, debug, and deploy LeanIX automation scripts |
+| [automations-toolkit](skills/automations-toolkit/) | Build, debug, and deploy LeanIX automation scripts |
 
 ## Requirements and Setup
 

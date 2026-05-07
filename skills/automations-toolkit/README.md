@@ -1,4 +1,4 @@
-# leanix-automations
+# automations-toolkit
 
 An [Agent Skill](https://agentskills.io) that builds, debugs, and deploys LeanIX automation scripts. Covers trigger configuration, script templates, API deployment via MCP, error patterns, and multi-automation strategies.
 
@@ -11,16 +11,16 @@ The [LeanIX MCP Server](https://github.com/SAP/leanix-mcp) must be configured so
 ### Claude Code
 
 ```bash
-claude skill add --from ./skills/leanix-automations
+claude skill add --from ./skills/automations-toolkit
 ```
 
 Or add the directory directly:
 
 ```bash
-claude --add-dir skills/leanix-automations
+claude --add-dir skills/automations-toolkit
 ```
 
-Invoke with `/leanix-automations` in the prompt.
+Invoke with `/automations-toolkit` in the prompt.
 
 ### Cursor
 
@@ -37,7 +37,7 @@ Point Codex at the `SKILL.md` file as a context document.
 ### Gemini CLI
 
 ```bash
-gemini --skill skills/leanix-automations
+gemini --skill skills/automations-toolkit
 ```
 
 ### Other Agents
