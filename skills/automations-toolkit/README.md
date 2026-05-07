@@ -4,45 +4,11 @@ An [Agent Skill](https://agentskills.io) that builds, debugs, and deploys LeanIX
 
 ## Prerequisites
 
-The [LeanIX MCP Server](https://github.com/SAP/leanix-mcp) must be configured so your agent can call LeanIX tools. See [`assets/MCP-SETUP.md`](assets/MCP-SETUP.md) for configuration details and [`assets/.mcp.json.example`](assets/.mcp.json.example) for a starter config.
+The [LeanIX MCP Server](https://help.sap.com/docs/leanix/ea/mcp-server) must be configured so your agent can call LeanIX tools. See [`assets/MCP-SETUP.md`](assets/MCP-SETUP.md) for configuration details and [`assets/.mcp.json.example`](assets/.mcp.json.example) for a starter config.
 
 ## Installation
 
-### Claude Code
-
-```bash
-claude skill add --from ./skills/automations-toolkit
-```
-
-Or add the directory directly:
-
-```bash
-claude --add-dir skills/automations-toolkit
-```
-
-Invoke with `/automations-toolkit` in the prompt.
-
-### Cursor
-
-Add to `.cursor/skills/` or reference via your project's AI configuration. The `SKILL.md` file is the entry point.
-
-### GitHub Copilot / VS Code
-
-Reference the skill directory in your `.github/copilot-instructions.md` or workspace settings.
-
-### OpenAI Codex
-
-Point Codex at the `SKILL.md` file as a context document.
-
-### Gemini CLI
-
-```bash
-gemini --skill skills/automations-toolkit
-```
-
-### Other Agents
-
-Any agent supporting the [Agent Skills standard](https://agentskills.io/clients) can load `SKILL.md` as its entry point. The `references/` directory contains supporting documentation loaded on demand.
+Install via the Claude Code plugin marketplace (see [repo README](../../README.md#requirements-and-setup)), or point any [Agent Skills](https://agentskills.io/clients)-compatible agent at this directory.
 
 ## Contents
 
