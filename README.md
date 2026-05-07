@@ -16,7 +16,16 @@ The skills in this repository are designed to work with the [LeanIX MCP Server](
 
 ## Requirements and Setup
 
-Skills follow the [Agent Skills](https://agentskills.io) open standard and can be used with any compatible AI agent. Installation steps vary per tool — consult your agent's documentation:
+This repository is also a [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces#create-and-distribute-a-plugin-marketplace). A **plugin** is a collection of one or more skills. Install via Claude Code:
+
+```shell
+/plugin marketplace add SAP/leanix-ai-plugins
+/plugin install automations-toolkit@leanix-ai-plugins
+```
+
+For other agents (Cursor, Gemini CLI, Codex, etc.), point the agent at the skill directory directly — see each skill's README for agent-specific instructions.
+
+Skills follow the [Agent Skills](https://agentskills.io) open standard. Consult your agent's documentation for how to load them:
 
 - [Claude Code](https://code.claude.com/docs/en/skills)
 - [Cursor](https://cursor.com/docs/context/skills)

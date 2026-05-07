@@ -8,7 +8,7 @@ Instances of abusive, harassing, or otherwise unacceptable behavior may be repor
 
 ## What Can You Contribute?
 
-This repository hosts [Agent Skills](https://agentskills.io) — reusable, portable instructions that extend AI coding agents with LeanIX-specific workflows and domain knowledge. Skills work across a wide range of AI tools, including Claude Code, Cursor, GitHub Copilot, VS Code, OpenAI Codex, Gemini CLI, and others.
+This repository hosts [Agent Skills](https://agentskills.io) — reusable, portable instructions that extend AI coding agents with LeanIX-specific workflows and domain knowledge.
 
 Contributions we welcome:
 
@@ -18,22 +18,15 @@ Contributions we welcome:
 
 ## How to Contribute
 
-Open a pull request. For bugs and improvements to existing skills, go ahead directly. For new skills, opening a GitHub issue first to discuss the idea is welcome but not required.
+Open a pull request against `main`.
 
-### Skill Structure
+### Adding a Skill
 
-Skills follow the [Agent Skills](https://agentskills.io) open standard. Each skill is a directory containing a `SKILL.md` file:
+All skills live under `skills/` at the repository root. Each skill is a directory with a `SKILL.md` file containing YAML frontmatter (`name` and `description` required) and Markdown instructions. Keep `SKILL.md` under 500 lines and move detailed content to `references/` files.
 
-```
-skill-name/
-├── SKILL.md          # Required: metadata + instructions
-├── scripts/          # Optional: executable code
-├── references/       # Optional: documentation
-├── assets/           # Optional: templates, resources
-└── ...               # Any additional files or directories
-```
+See the [Agent Skills specification](https://agentskills.io/specification) for the full format, naming rules, and content guidelines.
 
-See [agentskills.io](https://agentskills.io) for the full format specification.
+When adding a new skill, also register it in `.claude-plugin/marketplace.json` — see the [README](README.md#requirements-and-setup) for how the marketplace works.
 
 ### Pull Requests
 
@@ -49,4 +42,4 @@ Include a title that describes what the skill does or what changed, and a brief 
 
 ## Issues and Bug Reports
 
-Use GitHub issues to report bugs or request enhancements. Include enough context for someone unfamiliar with your setup to understand the problem — what you expected, what happened instead, and which agent and skill were involved.
+Use GitHub issues to report bugs. Include enough context for someone unfamiliar with your setup to understand the problem — what you expected, what happened instead, and which agent and skill were involved.
