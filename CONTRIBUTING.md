@@ -6,34 +6,29 @@ All members of the project community must abide by the [SAP Open Source Code of 
 Only by respecting each other we can develop a productive, collaborative community.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting [a project maintainer](REUSE.toml).
 
-## Engaging in Our Project
+## How to Participate
 
-We use GitHub to manage reviews of pull requests.
+This repository hosts [Agent Skills](https://agentskills.io) — reusable, portable instructions that extend AI coding agents with LeanIX-specific workflows and domain knowledge.
 
-* If you are a new contributor, see: [Steps to Contribute](#steps-to-contribute)
+There are several ways to participate in this project:
 
-* Before implementing your change, create an issue that describes the problem you would like to solve or the code that should be enhanced. Please note that you are willing to work on that issue.
+- **Report issues** — found a bug, unclear instruction, or missing edge case in a skill? Open a GitHub issue.
+- **Request skills** — have an idea for a new skill or workflow? Start a discussion or file an issue describing the use case.
+- **Fork and extend** — you're welcome to fork this repository and build your own skills on top of it.
+- **Give feedback** — try the skills, tell us what works well and what doesn't.
 
-* The team will review the issue and decide whether it should be implemented as a pull request. In that case, they will assign the issue to you. If the team decides against picking up the issue, the team will post a comment with an explanation.
+## Code Contributions
 
-## Steps to Contribute
+Direct code contributions (pull requests) to this repository are managed by the SAP LeanIX team. If you'd like to propose a change, open an issue describing what you have in mind and we'll discuss the best path forward.
 
-Should you wish to work on an issue, please claim it first by commenting on the GitHub issue that you want to work on. This is to prevent duplicated efforts from other contributors on the same issue.
+## Issues and Bug Reports
 
-If you have questions about one of the issues, please comment on them, and one of the maintainers will clarify.
+Use GitHub issues to report bugs. Include enough context for someone unfamiliar with your setup to understand the problem — what you expected, what happened instead, and which agent and skill were involved.
 
-## Contributing Code or Documentation
+## Legal
 
-You are welcome to contribute code in order to fix a bug or to implement a new feature that is logged as an issue.
+**License.** All content in this repository is licensed under the [Apache 2.0 License](./LICENSE).
 
-The following rule governs code contributions:
+**Developer Certificate of Origin (DCO).** Contributors are asked to accept the DCO. SAP uses [the standard DCO text of the Linux Foundation](https://developercertificate.org/).
 
-* Contributions must be licensed under the [Apache 2.0 License](./LICENSE).
-* Due to legal reasons, contributors will be asked to accept a Developer Certificate of Origin (DCO) when they create the first pull request to this project. This happens in an automated fashion during the submission process. SAP uses [the standard DCO text of the Linux Foundation](https://developercertificate.org/).
-* Contributions must follow our [guidelines on AI-generated code](https://github.com/SAP/.github/blob/main/CONTRIBUTING_USING_GENAI.md) in case you are using such tools.
-
-## Issues and Planning
-
-* We use GitHub issues to track bugs and enhancement requests.
-
-* Please provide as much context as possible when you open an issue. The information you provide must be comprehensive enough to reproduce that issue for the assignee.
+**AI-generated content.** Contributions that were created with AI assistance must follow the [SAP guidelines on AI-generated code](https://github.com/SAP/.github/blob/main/CONTRIBUTING_USING_GENAI.md).

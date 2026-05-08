@@ -1,0 +1,19 @@
+{
+  "name": "leanix-ai-plugins",
+  "owner": {
+    "name": "SAP LeanIX"
+  },
+  "metadata": {
+    "description": "Agent Skills for SAP LeanIX — reusable, portable instructions that extend AI coding agents with LeanIX-specific workflows and domain knowledge.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "automations-toolkit",
+      "description": "Build, debug, and deploy LeanIX automation scripts. Covers trigger configuration, script templates, API deployment via MCP, error patterns, and multi-automation strategies.",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/automations-toolkit"]
+    }
+  ]
+}
