@@ -18,10 +18,6 @@ Contributions we welcome:
 
 ## How to Contribute
 
-Open a pull request against `main`.
-
-### Adding a Skill
-
 All skills live under `skills/` at the repository root. Each skill is a directory with a `SKILL.md` file containing YAML frontmatter (`name` and `description` required) and Markdown instructions. Keep `SKILL.md` under 500 lines and move detailed content to `references/` files.
 
 See the [Agent Skills specification](https://agentskills.io/specification) for the full format, naming rules, and content guidelines.
