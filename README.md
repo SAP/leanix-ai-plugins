@@ -36,7 +36,7 @@ Skills follow the [Agent Skills](https://agentskills.io) open standard. Consult 
 
 ## Support, Feedback, Contributing
 
-This project is open to feature requests/suggestions, bug reports etc. via [GitHub issues](https://github.com/SAP/leanix-ai-plugins/issues). Contribution and feedback are encouraged and always welcome. For more information about how to contribute, the project structure, as well as additional contribution information, see our [Contribution Guidelines](CONTRIBUTING.md).
+This project is open to feature requests, bug reports, and feedback via [GitHub issues](https://github.com/SAP/leanix-ai-plugins/issues). See our [Contribution Guidelines](CONTRIBUTING.md) for ways to participate.
 
 ## Security / Disclosure
 If you find any bug that may be a security problem, please follow our instructions at [in our security policy](https://github.com/SAP/leanix-ai-plugins/security/policy) on how to report it. Please do not create GitHub issues for security-related doubts or problems.

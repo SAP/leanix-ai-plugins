@@ -6,36 +6,29 @@ All members of the project community must abide by the [SAP Open Source Code of 
 Only by respecting each other we can develop a productive, collaborative community.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting [a project maintainer](REUSE.toml).
 
-## What Can You Contribute?
+## How to Participate
 
 This repository hosts [Agent Skills](https://agentskills.io) — reusable, portable instructions that extend AI coding agents with LeanIX-specific workflows and domain knowledge.
 
-Contributions we welcome:
+There are several ways to participate in this project:
 
-- **New skills** that help users work more effectively with the LeanIX MCP server or the LeanIX platform in general
-- **Improvements to existing skills** — better descriptions, clearer instructions, additional examples, or bug fixes
-- **Documentation improvements** — corrections, clarifications, or better setup instructions
+- **Report issues** — found a bug, unclear instruction, or missing edge case in a skill? Open a GitHub issue.
+- **Request skills** — have an idea for a new skill or workflow? Start a discussion or file an issue describing the use case.
+- **Fork and extend** — you're welcome to fork this repository and build your own skills on top of it.
+- **Give feedback** — try the skills, tell us what works well and what doesn't.
 
-## How to Contribute
+## Code Contributions
 
-All skills live under `skills/` at the repository root. Each skill is a directory with a `SKILL.md` file containing YAML frontmatter (`name` and `description` required) and Markdown instructions. Keep `SKILL.md` under 500 lines and move detailed content to `references/` files.
-
-See the [Agent Skills specification](https://agentskills.io/specification) for the full format, naming rules, and content guidelines.
-
-When adding a new skill, also register it in `.claude-plugin/marketplace.json` — see the [README](README.md#requirements-and-setup) for how the marketplace works.
-
-### Pull Requests
-
-Include a title that describes what the skill does or what changed, and a brief description with an example showing the skill in action. Do not include sensitive or proprietary data in skill files or examples.
-
-## Legal Requirements
-
-**License.** All contributions must be licensed under the [Apache 2.0 License](./LICENSE).
-
-**Developer Certificate of Origin (DCO).** When you create your first pull request, you will be asked to accept the DCO. This happens automatically during submission. SAP uses [the standard DCO text of the Linux Foundation](https://developercertificate.org/).
-
-**AI-generated content.** Contributions that were created with AI assistance must follow the [SAP guidelines on AI-generated code](https://github.com/SAP/.github/blob/main/CONTRIBUTING_USING_GENAI.md).
+Direct code contributions (pull requests) to this repository are managed by the SAP LeanIX team. If you'd like to propose a change, open an issue describing what you have in mind and we'll discuss the best path forward.
 
 ## Issues and Bug Reports
 
 Use GitHub issues to report bugs. Include enough context for someone unfamiliar with your setup to understand the problem — what you expected, what happened instead, and which agent and skill were involved.
+
+## Legal
+
+**License.** All content in this repository is licensed under the [Apache 2.0 License](./LICENSE).
+
+**Developer Certificate of Origin (DCO).** Contributors are asked to accept the DCO. SAP uses [the standard DCO text of the Linux Foundation](https://developercertificate.org/).
+
+**AI-generated content.** Contributions that were created with AI assistance must follow the [SAP guidelines on AI-generated code](https://github.com/SAP/.github/blob/main/CONTRIBUTING_USING_GENAI.md).
