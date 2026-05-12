@@ -8,7 +8,7 @@ Instances of abusive, harassing, or otherwise unacceptable behavior may be repor
 
 ## Contributions
 
-Currently we only accept internal contributions from the SAP Leanix team.
+Currently we only accept internal contributions from the SAP LeanIX team.
 
 ## How to Participate
 
