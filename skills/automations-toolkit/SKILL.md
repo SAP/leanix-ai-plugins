@@ -138,6 +138,50 @@ Branch to the appropriate workflow based on final response.
 
 ---
 
+### Step 0.1: Verify Automations Toolset
+
+**Run immediately after determining intent (before any other MCP call):**
+
+Call `mcp__leanix__list_automations()`. This is a lightweight check that confirms the `automations` toolset is active.
+
+**If the call succeeds:** Continue to the next step silently (no message needed).
+
+**If the tool is not found / not available:**
+
+The `automations` toolset is **optional and hidden by default**. Display this message to the user:
+
+> **Automation tools are not available.** Your MCP connection is missing the `automations` toolset.
+>
+> Fix: Add `?toolsets=inventory,automations` to your MCP server URL.
+>
+> **Claude Code (OAuth):**
+> ```
+> claude mcp remove leanix
+> claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"
+> ```
+>
+> **Claude Code (.mcp.json):** Change the URL to:
+> ```
+> https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations
+> ```
+>
+> After updating, restart Claude Code and re-invoke `/automations-toolkit`.
+
+Then **stop the workflow** — do not continue without automation tools, as deployment will fail.
+
+**If MCP is not connected at all** (no `mcp__leanix__*` tools available):
+
+> **No LeanIX MCP connection detected.** This skill requires the LeanIX MCP server.
+>
+> Quickest setup:
+> ```
+> claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"
+> ```
+>
+> See [MCP Setup](assets/MCP-SETUP.md) for full instructions.
+
+---
+
 ### Step 0.5: Schema Reference Check (Optional)
 
 After the user selects a workflow, optionally verify schema awareness:
@@ -164,9 +208,6 @@ MCP handles authentication and workspace connection automatically. No credential
 - Or use `set_owner_to_current_user=True` on `create_automation` / `update_automation` to assign the authenticated user as owner
 
 **Display:** `Connected to LeanIX workspace - Ready for automatic deployment.`
-
-**Fallback:** If MCP tools fail, offer to set up MCP.
-See [MCP Setup](assets/MCP-SETUP.md) for server configuration.
 
 ### Step 2: Understand the Goal
 
