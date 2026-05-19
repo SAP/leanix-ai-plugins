@@ -48,12 +48,11 @@ Re-authenticate when your 24-hour session expires.
 
 Technical users authenticate using an API token. Create one at **Administration > Technical Users**.
 
-Three header formats are supported:
+Two header formats are supported:
 
 | Format | Header |
 |--------|--------|
 | **API Token** (simplest) | `Authorization: Token {YOUR-API-TOKEN}` |
-| **Basic Auth** | `Authorization: Basic BASE64(apitoken:{YOUR-API-TOKEN})` |
 | **Bearer Token** (JWT) | `Authorization: Bearer {YOUR-JWT}` |
 
 ---
