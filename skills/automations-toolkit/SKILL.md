@@ -4,13 +4,11 @@ description: >-
   Builds, debugs, and optimizes LeanIX automations using built-in actions
   when possible and scripts only when needed. Covers trigger types, action
   configuration, script templates, API deployment via MCP, error patterns,
-  and multi-automation strategies.
-when_to_use: >-
-  Use when creating new automations, debugging failing scripts, understanding
-  automation triggers, deploying via API, converting Azure Functions, syncing
-  subscriptions between fact sheets, managing tags based on relations, working
-  with GraphQL mutations, auditing workspace automations, or transferring
-  automation ownership.
+  and multi-automation strategies. Use when creating new automations, debugging
+  failing scripts, understanding automation triggers, deploying via API,
+  converting Azure Functions, syncing subscriptions between fact sheets,
+  managing tags based on relations, working with GraphQL mutations, auditing
+  workspace automations, or transferring automation ownership.
 argument-hint: "[goal or script to debug]"
 license: Apache-2.0
 compatibility: Requires LeanIX MCP server for API access (mcp__leanix__* tools)
