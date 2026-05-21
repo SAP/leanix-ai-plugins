@@ -6,12 +6,19 @@ JavaScript (ECMAScript 2023) automation scripts for LeanIX.
 
 ## Critical Rules
 
-**IMPORTANT: These cause silent failures if violated:**
+**Save-time validation rejects scripts that violate these. Fix before deploying:**
 
-- **NO `console.log()`** - Scripts fail silently with any console statements
-- **NO imports** - Only `fetch`, `data`, `context` are available globally
-- **All scripts** → `export function main() { }` wrapper required
-- **Scripts with fetch** → add `async`: `export async function main() { }`
+- **Must export `main`** — one of `export function main()`, `export async function main()`, or `export const main = (...) => ...`. Re-export (`function main(){}; export { main }`) and default export forms fail.
+- **`main()` takes zero parameters** — `data` and `context` are injected globals at runtime, not function parameters. `function main(data)` is rejected.
+- **`async main()` requires at least one `await`** — drop `async` if there isn't one (`require-await` lint rule).
+- **No `import` statements** — runner uses `--frozen --no-remote`. Only `fetch`, `data`, `context`, and standard JS built-ins are available.
+- **No top-level `await`** — `await` only works inside the `async main()` body.
+- **No TS-style type annotations** in `.js` files (e.g. `function f(x: string)`).
+
+**Runtime behavior (script saves but fails when it runs):**
+
+- **Globals deleted before execution:** `Deno`, `WebAssembly`, `setTimeout`, `setInterval`, `eval`, `Function` constructor — calling any throws `ReferenceError`.
+- **`console.log` / `console.error` are captured**, not blocked. Output lands in the execution result's `stdout` / `stderr`, which is NOT shown prominently in the Automations UI. For visible failure, `throw new Error(...)`.
 - **Cancel subsequent actions** → `throw new Error("cancel automation flow");`
 
 ```javascript
@@ -41,18 +48,21 @@ export async function main() {
 
 | Pattern | Code |
 |---------|------|
-| Edge/node access | `(rel?.edges \|\| []).map(e => e?.node).filter(Boolean)` |
+| Edge/node access | `(rel?.edges \|\| []).map(e => e?.node?.factSheet).filter(Boolean)` (or equivalent `for...of`) |
 | Type-specific fields | `... on Application { relApplicationToITComponent { } }` |
 | Clear a field | `return { fieldName: null }` |
 | Revision type | `$rev: Long!` (number, not string) |
-| Subscription filter | `type === "RESPONSIBLE"` then `roles.some(r => r.name === "...")` |
+| Subscription filter | `type === "RESPONSIBLE" && roles.some(r => r?.name === "...")` (or equivalent `for...of`) |
 
 ## Common Errors
 
 | Error | Fix |
 |-------|-----|
-| Script fails silently | Remove all `console.log()` |
-| `'main' is not defined` | Use `export function main()` (add `async` if using fetch) |
+| `Function 'main' must be exported` | Use `export function main()` or `export async function main()`; re-export and default export forms fail. |
+| `Function 'main' takes no parameters` | Drop the parameter — `data` and `context` are injected globals, not parameters. |
+| `Async function 'main' has no await expression` | Drop `async`, or add an `await` (e.g. `fetch`). `require-await` blocks save. |
+| `TS2307: Cannot find module` | No `import` allowed — runner is `--frozen --no-remote`. |
+| `ReferenceError: Deno is not defined` (and `setTimeout`, `setInterval`, `eval`, `Function`, `WebAssembly`) | These globals are deleted at runtime. Use `fetch` for I/O. |
 | `Field 'rel...' undefined` | Wrap in `... on Application { }` |
 | Revision conflict | Track `currentRev` after each mutation |
 | Subscriptions array empty | `data.factSheet.subscriptions` is always empty; fetch via GraphQL |
@@ -64,18 +74,30 @@ export async function main() {
 
 **Multi-relation tie-breaker** (when fact sheet links to multiple related items):
 ```javascript
-const statuses = (app.relApplicationToInitiative?.edges || [])
-  .map(e => e?.node?.factSheet?.initiativeStatus)
-  .filter(Boolean);
+const statuses = [];
+for (const edge of (app.relApplicationToInitiative?.edges || [])) {
+  const status = edge?.node?.factSheet?.initiativeStatus;
+  if (status) statuses.push(status);
+}
 
 if (statuses.length === 0) return { permission: null };  // Clear if none
-if (statuses.some(s => s === "blocked")) return { permission: "no" };  // Any blocked wins
-if (statuses.every(s => s === "active")) return { permission: "yes" };  // All must be active
+
+let hasBlocked = false;
+let allActive = statuses.length > 0;
+for (const s of statuses) {
+  if (s === "blocked") hasBlocked = true;
+  if (s !== "active") allActive = false;
+}
+if (hasBlocked) return { permission: "no" };   // Any blocked wins
+if (allActive)  return { permission: "yes" };  // All must be active
 ```
 
 **Idempotency** (prevent duplicates on re-run):
 ```javascript
-const existingKeys = new Set(existing.map(e => `${e.roleId}|${e.userId}`));
+const existingKeys = new Set();
+for (const e of existing) {
+  existingKeys.add(e.roleId + "|" + e.userId);
+}
 if (existingKeys.has(key)) continue;  // Skip if exists
 ```
 

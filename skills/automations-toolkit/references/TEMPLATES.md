@@ -6,6 +6,125 @@ Ready-to-use templates for common automation patterns.
 
 > **Return Object vs GraphQL API:** The return object can update `description`, `name`, `tags`, `lifecycle`, and custom fields on the triggering fact sheet. For relations, subscriptions, relation attributes, location fields, or modifying other fact sheets, use the GraphQL API within async scripts.
 
+---
+
+## Save-Validation Rules
+
+The Run Script service validates every script at save time. Violations return HTTP 422 and the script does not save. The rules below are exhaustive for the user-relevant cases.
+
+### Custom rules (always reject)
+
+- **Must export `main`.** The script must contain one of:
+  - `export function main() { ... }`
+  - `export async function main() { ... }`
+  - `export const main = () => { ... }` / `export const main = async () => { ... }`
+
+  Re-export forms (`function main() {}; export { main };`) and default exports (`export default function main() {}`) are rejected.
+
+- **`main()` takes zero parameters.** `data` and `context` are injected as globals at runtime, not passed in. Even `function main(data)` or `function main(ctx)` fails.
+
+### Lint rules
+
+- **`require-await`** — `async function main()` must contain at least one `await`. Drop `async` if there isn't one.
+- **`no-await-in-sync-fn`** — `await` only inside `async` functions.
+- Standard rules: **`no-debugger`**, **`no-const-assign`**, **`no-redeclare`**, **`no-dupe-keys`**.
+
+### TypeScript error codes that reject
+
+| Code | Meaning | Common cause |
+|---|---|---|
+| `TS1308` | `await` outside an `async` function or top-level | Top-level `await` in the module body — `await` must live inside `main` |
+| `TS2304` / `TS2552` | Undefined identifier | Typo, missing global, referencing a removed runtime global |
+| `TS2588` | Const reassignment | `const x = 1; x = 2;` |
+| `TS2693` | "Any used as a value" | Using a TypeScript type as a runtime value |
+| `TS8010` | TS-style annotations in JS | `function f(x: string)` in a `.js` file |
+| `TS1231` / `TS2307` | `import` fails | The runner uses `--frozen --no-remote`; any `import "..."` returns *Cannot find module* |
+
+### Not enforced
+
+- **`noImplicitAny` is OFF.** Untyped arrow callbacks (`.map(e => e?.node)`, `.filter(s => ...)`, `.some(r => ...)`) save and run fine. Helper functions with untyped parameters save and run fine.
+- **`// @ts-nocheck` is benign.** No rule blocks it. The "must export `main`" check is an AST traversal, independent of TypeScript comments.
+
+### Validator response shape
+
+- **HTTP 422** body: `{ line, column, message, code, hint? }`. The `code` field carries the lint-rule name (`require-await`, `no-main-parameters`, `exported-main-function`, …) or the TS error code (`TS2307`, `TS1308`, …). Useful for parsing failures programmatically.
+- **HTTP 400 BAD_REQUEST** when the script body is empty or whitespace-only.
+
+### Inactive configurations skip validation
+
+Saving an **inactive** execution configuration with broken syntax succeeds silently. The validator only runs against **active** configurations. The save-time errors above only surface when the configuration is activated. Practical implication: don't trust "saved without error" on an inactive script — activate it (or test in a sandbox automation) before relying on it.
+
+### Console capture is partial
+
+- Only **`console.log`** and **`console.error`** are captured, to the result's `stdout` / `stderr` strings.
+- `console.warn`, `console.info`, `console.debug`, `console.table`, etc. are **not captured** — output is silently dropped.
+- Calling any captured method does not fail the script. For visible failure, `throw new Error(...)`.
+
+---
+
+## Runtime Limits & Sandboxing
+
+Limits enforced when the script runs (after save validation has passed). Hitting any of these aborts execution with a specific failure code in the result's `error` field.
+
+### Sandbox flags
+
+The runner runs with **no raw network, file, env, subprocess, FFI, or import access**. Use `fetch` for HTTP — it goes through a host-controlled bridge, not raw networking. Standard JS built-ins (`Date`, `Math`, `JSON`, `Array`, `Object`, etc.) are available.
+
+### Globals deleted before the script runs
+
+`Deno`, `WebAssembly`, `setTimeout`, `setInterval`, `eval`, `Function` (constructor). Calling any throws `ReferenceError`.
+
+### Injected just before the script runs
+
+`data`, `context`. Treat both as **read-only**: the runner process is reused across executions, and globals are backed up and restored between runs. Mutating them in place can leak state — and at minimum is wasted work.
+
+### Resource limits
+
+- **V8 heap memory** → failure code **`OUT_OF_MEMORY`**. Don't build unbounded arrays; paginate large queries (use the cursor pattern).
+- **Execution time** → failure code **`EXECUTION_TIMEOUT`**. Long pagination loops or many sequential mutations can hit this; batch where possible.
+- **Request size ≈ 2 MB** on the executor endpoint. Very large `data.factSheet` payloads or huge inline JSON in the script body can be rejected before the script even runs.
+
+### Failure codes (in the result's `error` field)
+
+| Code | Meaning |
+|---|---|
+| `NETWORK_ACCESS_DENIED` | A non-`fetch` network attempt was blocked |
+| `ENVIRONMENT_ACCESS_DENIED` | Code attempted to read process env |
+| `RUN_ACCESS_DENIED` | Code attempted to spawn a subprocess |
+| `PLUGIN_ACCESS_DENIED` | FFI / native plugin access blocked |
+| `READ_ACCESS_DENIED` | File-system read attempted |
+| `WRITE_ACCESS_DENIED` | File-system write attempted |
+| `PERMISSION_DENIED` | Catch-all for other denied capabilities |
+| `OUT_OF_MEMORY` | V8 heap exhausted |
+| `EXECUTION_TIMEOUT` | Script exceeded the time budget |
+| `CONFIGURATION_INACTIVE` | The execution configuration is not active |
+| `CONFIGURATION_NOT_FOUND` | The referenced configuration does not exist |
+| `SECRET_NOT_FOUND` | A referenced secret key is not provisioned |
+| `SECRET_CREDENTIALS_INVALID` | A referenced secret has invalid credentials |
+| `UNEXPECTED_ERROR` | Anything not covered above |
+
+### Execution result envelope
+
+```
+{
+  requestId,            // string — correlates with execution logs
+  result?,              // the value your `main()` returned (the patch object)
+  error?,               // a failure-code object when execution fails
+  stdout: string,       // captured `console.log` output (always a string, possibly "")
+  stderr: string        // captured `console.error` output (always a string, possibly "")
+}
+```
+
+`stdout` / `stderr` are present on success too — useful for emitting debug information that you can read back via API but won't pollute the Automations UI.
+
+---
+
+## Style note
+
+Templates below use a mix of `for...of` loops and `.map(...).filter(Boolean)` chains. Both forms validate and run identically. Choose whichever reads better for the task.
+
+---
+
 ## Table of Contents
 
 - [Template 1: Simple Sync Script (No API)](#template-1-simple-sync-script-no-api)
@@ -119,9 +238,11 @@ export async function main() {
   if (!fs) return {};
 
   // Extract related items safely
-  const relatedItems = (fs.relApplicationToITComponent?.edges || [])
-    .map(e => e?.node?.factSheet)
-    .filter(Boolean);
+  const relatedItems = [];
+  for (const edge of (fs.relApplicationToITComponent?.edges || [])) {
+    const target = edge?.node?.factSheet;
+    if (target) relatedItems.push(target);
+  }
 
   // Your logic here
   // ...
@@ -199,9 +320,11 @@ export async function main() {
   if (!fs) return {};
 
   // Get related fact sheets
-  const relatedItems = (fs.relApplicationToITComponent?.edges || [])
-    .map(e => e?.node?.factSheet)
-    .filter(Boolean);
+  const relatedItems = [];
+  for (const edge of (fs.relApplicationToITComponent?.edges || [])) {
+    const target = edge?.node?.factSheet;
+    if (target) relatedItems.push(target);
+  }
 
   // Update each related fact sheet with retry on REVISION_CLASH
   for (const item of relatedItems) {
@@ -309,14 +432,17 @@ export async function main() {
   let currentRev = fs.rev;
 
   // Find target subscriptions
-  const subscriptions = (fs.subscriptions?.edges || [])
-    .map(e => e?.node)
-    .filter(Boolean);
-
-  const targetSubs = subscriptions.filter(sub =>
-    sub.type === "RESPONSIBLE" &&
-    sub.roles?.some(r => r.name === TARGET_ROLE_NAME)
-  );
+  const targetSubs = [];
+  for (const subEdge of (fs.subscriptions?.edges || [])) {
+    const sub = subEdge?.node;
+    if (!sub) continue;
+    if (sub.type !== "RESPONSIBLE") continue;
+    let hasRole = false;
+    for (const role of (sub.roles || [])) {
+      if (role?.name === TARGET_ROLE_NAME) { hasRole = true; break; }
+    }
+    if (hasRole) targetSubs.push(sub);
+  }
 
   // Create subscription
   const createRes = await fetch(GRAPHQL_URL, {
@@ -422,13 +548,18 @@ export async function main() {
   if (!fs) return {};
 
   // Calculate required tags based on related items
-  const relatedItems = (fs.relApplicationToITComponent?.edges || [])
-    .map(e => e?.node?.factSheet)
-    .filter(Boolean);
+  const relatedItems = [];
+  for (const edge of (fs.relApplicationToITComponent?.edges || [])) {
+    const target = edge?.node?.factSheet;
+    if (target) relatedItems.push(target);
+  }
 
   const requiredTagIds = new Set();
   for (const item of relatedItems) {
-    const itemTags = (item.tags || []).map(t => t.id);
+    const itemTags = [];
+    for (const t of (item.tags || [])) {
+      if (t?.id) itemTags.push(t.id);
+    }
     if (itemTags.includes("SOME_CONDITION_TAG")) {
       requiredTagIds.add(TAG_IDS.CONDITION_A);
     }
@@ -436,17 +567,22 @@ export async function main() {
 
   // Reconcile tags
   const currentTags = data.factSheet.tags ?? [];
-  const otherTags = currentTags.filter(id => !ALL_MANAGED_TAGS.includes(id));
-  const currentManagedTags = currentTags.filter(id => ALL_MANAGED_TAGS.includes(id));
+  const otherTags = [];
+  const currentManagedTags = [];
+  for (const id of currentTags) {
+    if (ALL_MANAGED_TAGS.includes(id)) currentManagedTags.push(id);
+    else otherTags.push(id);
+  }
 
   // Idempotency check
   const requiredArray = Array.from(requiredTagIds);
-  if (
-    currentManagedTags.length === requiredArray.length &&
-    requiredArray.every(id => currentManagedTags.includes(id))
-  ) {
-    return {};
+  let allPresent = currentManagedTags.length === requiredArray.length;
+  if (allPresent) {
+    for (const id of requiredArray) {
+      if (!currentManagedTags.includes(id)) { allPresent = false; break; }
+    }
   }
+  if (allPresent) return {};
 
   return { tags: [...otherTags, ...requiredArray] };
 }
@@ -502,9 +638,11 @@ export async function main() {
   const triggerFs = json?.data?.factSheet;
   if (!triggerFs) return {};
 
-  const targetIds = (triggerFs.relInitiativeToApplication?.edges || [])
-    .map(e => e?.node?.factSheet?.id)
-    .filter(Boolean);
+  const targetIds = [];
+  for (const edge of (triggerFs.relInitiativeToApplication?.edges || [])) {
+    const id = edge?.node?.factSheet?.id;
+    if (id) targetIds.push(id);
+  }
 
   // For each target, query ALL its relations and apply tie-breaker
   for (const targetId of targetIds) {
@@ -533,17 +671,26 @@ export async function main() {
     if (!target) continue;
 
     // Get ALL statuses from ALL related items
-    const statuses = (target.relApplicationToInitiative?.edges || [])
-      .map(e => e?.node?.factSheet?.statusField)
-      .filter(Boolean);
+    const statuses = [];
+    for (const edge of (target.relApplicationToInitiative?.edges || [])) {
+      const status = edge?.node?.factSheet?.statusField;
+      if (status) statuses.push(status);
+    }
 
     // Tie-breaker logic
+    let hasBlocking = false;
+    let allActive = statuses.length > 0;
+    for (const s of statuses) {
+      if (s === "blocked" || s === "frozen") hasBlocking = true;
+      if (s !== "active") allActive = false;
+    }
+
     let newValue;
     if (statuses.length === 0) {
       newValue = null;  // No linked items → clear
-    } else if (statuses.some(s => s === "blocked" || s === "frozen")) {
+    } else if (hasBlocking) {
       newValue = "no";  // Any blocking status wins
-    } else if (statuses.every(s => s === "active")) {
+    } else if (allActive) {
       newValue = "yes"; // All must be active
     } else {
       continue; // Mixed/unknown → no change
@@ -639,9 +786,11 @@ export async function main() {
 
   let currentRev = fs.rev;
 
-  const relations = (fs.relApplicationToITComponent?.edges || [])
-    .map(e => e?.node)
-    .filter(Boolean);
+  const relations = [];
+  for (const edge of (fs.relApplicationToITComponent?.edges || [])) {
+    const node = edge?.node;
+    if (node) relations.push(node);
+  }
 
   for (const rel of relations) {
     const newStatus = calculateStatus(rel);  // Your logic
@@ -720,7 +869,10 @@ export function main() {
   }
 
   // Example: Cancel if wrong lifecycle phase
-  const currentPhase = fs.lifecycle?.phases?.find(p => p.startDate)?.phase;
+  let currentPhase = null;
+  for (const p of (fs.lifecycle?.phases || [])) {
+    if (p?.startDate) { currentPhase = p.phase; break; }
+  }
   if (currentPhase === "endOfLife") {
     throw new Error("cancel automation flow");
   }

@@ -79,13 +79,19 @@ The bearer token is automatically provided by the LeanIX service. Access it in s
 const token = context.secrets["default_automations_secret"].value.bearerToken;
 ```
 
-### GraphQL Endpoints
+### Service Endpoints
 
-| Service | URL Pattern |
-|---------|-------------|
-| Pathfinder (GraphQL) | `https://INSTANCE.leanix.net/services/pathfinder/v1/graphql` |
-| ToDo API | `https://INSTANCE.leanix.net/services/todo/v1/to-do` |
-| Integration API | `https://INSTANCE.leanix.net/services/integration-api/v1/...` |
+| Service | URL Pattern | Spec |
+|---------|-------------|------|
+| Pathfinder (GraphQL) | `https://INSTANCE.leanix.net/services/pathfinder/v1/graphql` | GraphQL only — use schema introspection |
+| To-Do API | `https://INSTANCE.leanix.net/services/todo/v1/to-do` | `https://INSTANCE.leanix.net/services/todo/v1/openapi.json` |
+| Webhooks API | `https://INSTANCE.leanix.net/services/webhooks/v1/...` | `https://INSTANCE.leanix.net/services/webhooks/v1/openapi.json` |
+| MTM (multi-tenant) | `https://INSTANCE.leanix.net/services/mtm/v1/...` | `https://INSTANCE.leanix.net/services/mtm/v1/openapi.json` |
+| Automations | `https://INSTANCE.leanix.net/services/automations/v1/...` | `https://INSTANCE.leanix.net/services/automations/v1/api-json` (auth-gated) |
+
+> **Discovering endpoints**: Most LeanIX services publish their OpenAPI 3.x spec at `/services/{name}/v1/openapi.json`. WebFetch the spec instead of guessing endpoint shapes or web-searching the docs site. For the full discovery procedure and verified service inventory, see [`references/API-REFERENCE.md` → *Discovering Service Specs*](../../references/API-REFERENCE.md#discovering-service-specs).
+>
+> Note: `integration-api` is not a valid service path — it returns 404 across all checked instances. The canonical To-Do path is `services/todo` (singular).
 
 ### Error Handling
 
