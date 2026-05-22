@@ -14,6 +14,13 @@
       "source": "./",
       "strict": false,
       "skills": ["./skills/automations-toolkit"]
+    },
+    {
+      "name": "fact-sheet-search",
+      "description": "Search, discover, filter, and inspect LeanIX fact sheets using semantic search, name lookup, and structured filters.",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/fact-sheet-search"]
     }
   ]
 }
