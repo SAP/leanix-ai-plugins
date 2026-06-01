@@ -4,7 +4,7 @@ An [Agent Skill](https://agentskills.io) that builds, debugs, and deploys LeanIX
 
 ## Prerequisites
 
-The [LeanIX MCP Server](https://help.sap.com/docs/leanix/ea/mcp-server) must be configured so your agent can call LeanIX tools. See [`assets/MCP-SETUP.md`](assets/MCP-SETUP.md) for configuration details and [`assets/.mcp.json.example`](assets/.mcp.json.example) for a starter config.
+The [LeanIX MCP Server](https://help.sap.com/docs/leanix/ea/mcp-server) must be configured so your agent can call LeanIX tools. See [`assets/MCP-SETUP.md`](assets/MCP-SETUP.md) for configuration details, or copy [`assets/.mcp.json`](assets/.mcp.json) into your project as a drop-in OAuth config (no secrets — Claude Code triggers the sign-in flow on first connection).
 
 ## Installation
 
