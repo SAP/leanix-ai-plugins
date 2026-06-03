@@ -14,15 +14,22 @@ Ready-to-use calculation scripts organized by category.
 
 Query your workspace to find actual field and relation names:
 
+**Step 1 — discover available types:**
 ```
-Tool: mcp__leanix__get_fact_sheet_details
-Parameters: { "fact_sheet_type": "Application", "fact_sheet_ids": ["{REAL_UUID}"] }
+Tool: mcp__leanix__list_graphql_types
+Parameters: { "filter": "Application" }
 ```
 
-This returns all fields and relations for a real fact sheet — inspect the keys to discover:
-- All fields available on the fact sheet
-- All relation names (e.g. `relApplicationToITComponent`)
-- Enum values visible in field data
+**Step 2 — fetch field and relation definitions as SDL:**
+```
+Tool: mcp__leanix__get_graphql_type_definitions
+Parameters: { "type_names": ["Application", "ApplicationToBusinessCapabilityRelation"] }
+```
+
+This returns SDL with:
+- All fields for each type (with their types) — including unset fields
+- All relations and which types they connect
+- All enum values for Single Select fields
 
 ### 2. Identify Matching Names
 
@@ -38,7 +45,7 @@ Each example file contains comments indicating what to customize:
 ```javascript
 // ↓↓↓ CUSTOMIZE: Replace with YOUR workspace's relation name ↓↓↓
 const RELATION_NAME = "relApplicationToITComponent";
-// ↑↑↑ Discover via get_fact_sheet_details on a real Application fact sheet ↑↑↑
+// ↑↑↑ Discover via: list_graphql_types + get_graphql_type_definitions ↑↑↑
 ```
 
 Replace these values with your workspace's actual names.

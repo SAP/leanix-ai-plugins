@@ -35,7 +35,7 @@ Comprehensive help for LeanIX Calculations: create, debug, design, and manage.
 > Every LeanIX workspace has custom configurations. Before creating or debugging calculations:
 >
 > 1. **Fact sheet types** are enumerated in the `create_calculation` tool schema — no discovery call needed
-> 2. **Discover field keys** using `mcp__leanix__get_fact_sheet_details` on a real fact sheet of the target type
+> 2. **Fetch SDL** using `mcp__leanix__list_graphql_types` + `mcp__leanix__get_graphql_type_definitions` for fields, relations, and enums
 > 3. **Present discovered options** to the user (not hardcoded lists)
 > 4. **Validate all names** exist before generating code
 >
@@ -192,27 +192,24 @@ MCP handles authentication and workspace connection automatically. No credential
 > **CRITICAL:** Do NOT assume standard fact sheet types, fields, or relations exist.
 > Every workspace has custom configurations. ALWAYS discover before proceeding.
 
-**Fact sheet types** are enumerated in the `create_calculation` tool schema.
+**Fact sheet types** are enumerated in the `create_calculation` tool schema — no discovery call needed.
 
-**Discover field keys and relation names** using a real fact sheet:
+**Discover field keys, relation names, and enum values** using the GraphQL SDL:
 
 ```
-Tool: mcp__leanix__get_fact_sheet_details
-Parameters: { "fact_sheet_type": "{FactSheetType}", "fact_sheet_ids": ["{REAL_UUID}"] }
+Step 1: mcp__leanix__list_graphql_types(filter="{FactSheetType}")
+        → finds type names e.g. "Application", "ApplicationToBusinessCapabilityRelation"
+
+Step 2: mcp__leanix__get_graphql_type_definitions(["Application", "ApplicationToBusinessCapabilityRelation"])
+        → returns SDL with all fields, relations, and enum values
 ```
 
-The response gives you:
-- All fields with their current values (use key names in your code)
-- All relation names (e.g. `relApplicationToBusinessCapability`)
+The SDL response gives you:
+- All fields with their types (e.g., `functionalSuitability: ApplicationFunctionalSuitability`)
+- All relations and what they connect (e.g., `relApplicationToBusinessCapability: ApplicationToBusinessCapabilityRelationConnection`)
+- All enum values for Single Select fields
 
-**Example workflow for Application:**
-```
-1. Pick any real Application UUID from list_calculations or search_fact_sheet_by_name
-2. get_fact_sheet_details(fact_sheet_type="Application", fact_sheet_ids=["{UUID}"])
-   → inspect field keys and relation names
-```
-
-**Extract and store from the response:**
+**Extract and store from the SDL:**
 
 | Data | Use |
 |------|-----|
@@ -826,14 +823,19 @@ return undefined;              // No change (AVOID - usually indicates bug)
 
 ### Discover Data Model
 
-Use `get_fact_sheet_details` on a real fact sheet to discover workspace configuration:
+Use the GraphQL schema tools to discover workspace configuration:
 
 ```
-Tool: mcp__leanix__get_fact_sheet_details
-Parameters: { "fact_sheet_type": "{FactSheetType}", "fact_sheet_ids": ["{REAL_UUID}"] }
+Step 1: List available fact sheet types
+Tool: mcp__leanix__list_graphql_types
+Parameters: { "filter": "{FactSheetType}" }
+
+Step 2: Fetch SDL for the relevant types
+Tool: mcp__leanix__get_graphql_type_definitions
+Parameters: { "type_names": ["{FactSheetType}", "{RelationType}"] }
 ```
 
-Returns all fields and relation names for the given fact sheet type.
+Returns SDL with all fields, relations, and enum values for each type.
 
 ### Calculations CRUD
 

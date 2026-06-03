@@ -10,7 +10,7 @@ Reference for creating and managing calculations via MCP tools.
 >
 > Field names, relation names, and fact sheet types in this file are **examples from standard configurations**.
 >
-> **ALWAYS discover actual names** using `mcp__leanix__get_fact_sheet_details` on a real fact sheet before creating calculations.
+> **ALWAYS discover actual names** using `mcp__leanix__list_graphql_types` + `mcp__leanix__get_graphql_type_definitions` before creating calculations.
 
 ---
 
@@ -146,10 +146,11 @@ relations[0].obsolescenceRiskStatus
 **Discover relations via MCP:**
 
 ```
-Tool: mcp__leanix__get_fact_sheet_details
-Parameters:
-  fact_sheet_type: "Application"
-  fact_sheet_ids: ["{REAL_UUID}"]
+Step 1: mcp__leanix__list_graphql_types(filter="Application")
+        → finds "Application", "ApplicationToBusinessCapabilityRelation", etc.
+
+Step 2: mcp__leanix__get_graphql_type_definitions(["Application", "ApplicationToBusinessCapabilityRelation"])
+        → returns SDL with all fields, relations, and enum values
 ```
 
 Inspect the returned relation keys (e.g. `relApplicationToITComponent`) — these are the valid names for `data.relName` in your code.

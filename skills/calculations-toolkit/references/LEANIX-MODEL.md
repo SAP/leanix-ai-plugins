@@ -17,11 +17,11 @@ Reference for LeanIX data model with focus on calculation-specific patterns.
 > ### ALWAYS discover actual names before creating calculations:
 >
 > ```
-> Tool: mcp__leanix__get_fact_sheet_details
-> Parameters: { fact_sheet_type: "{FactSheetType}", fact_sheet_ids: ["{REAL_UUID}"] }
+> Step 1: mcp__leanix__list_graphql_types(filter="{FactSheetType}")
+> Step 2: mcp__leanix__get_graphql_type_definitions(["{FactSheetType}", "{RelationType}"])
 > ```
 >
-> The response gives you actual field keys, relation names, and enum values for the workspace.
+> The SDL response gives you all fields, relations, and enum values for the workspace.
 >
 > **Do NOT copy field, relation, or enum names from this file without verifying they exist in the workspace.** The names below are illustrative only — they show the *shape* of the data model, not the actual values your workspace uses.
 
@@ -33,8 +33,7 @@ This document provides a **static reference** for the standard LeanIX data model
 
 | Method | How | Benefits |
 |--------|-----|----------|
-| **get_fact_sheet_details** | Call with a real fact sheet UUID of the target type | Field keys, relation names, current enum values |
-| **create_calculation tool schema** | Inspect parameter enums directly | All valid fact sheet types, all relation names |
+| **GraphQL SDL** | `mcp__leanix__list_graphql_types` + `mcp__leanix__get_graphql_type_definitions` | Complete schema — all fields, relations, enums, even unset ones |
 
 **Live discovery provides:**
 - Actual field names for your workspace

@@ -13,8 +13,8 @@ Standard naming convention for LeanIX calculations.
 > Always discover the correct relation names for your workspace before creating calculations:
 >
 > ```
-> Tool: mcp__leanix__get_fact_sheet_details
-> Parameters: { fact_sheet_type: "{FactSheetType}", fact_sheet_ids: ["{REAL_UUID}"] }
+> Step 1: mcp__leanix__list_graphql_types(filter="{FactSheetType}")
+> Step 2: mcp__leanix__get_graphql_type_definitions(["{FactSheetType}", "{RelationType}"])
 > ```
 
 ---

@@ -18,11 +18,11 @@ Ready-to-use templates for common calculation patterns.
 > ### 1. Discover Your Data Model
 >
 > ```
-> Tool: mcp__leanix__get_fact_sheet_details
-> Parameters: { fact_sheet_type: "{FactSheetType}", fact_sheet_ids: ["{REAL_UUID}"] }
+> Step 1: mcp__leanix__list_graphql_types(filter="{FactSheetType}")
+> Step 2: mcp__leanix__get_graphql_type_definitions(["{FactSheetType}", "{RelationType}"])
 > ```
 >
-> Inspect the returned field keys and relation names — use these in place of the example values below.
+> The SDL response contains all fields, relations, and enum values.
 >
 > ### 2. Find Your Workspace's Actual Names
 >
