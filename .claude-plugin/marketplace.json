@@ -14,6 +14,13 @@
       "source": "./",
       "strict": false,
       "skills": ["./skills/automations-toolkit"]
+    },
+    {
+      "name": "calculations-toolkit",
+      "description": "Calculations let you populate fact sheet fields based on values from other fields. Covers creating, debugging, and managing calculations.",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/calculations-toolkit"]
     }
   ]
 }
