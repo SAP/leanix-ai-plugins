@@ -531,6 +531,39 @@ Every calculation requires an `owner_id` — the LeanIX user who owns the calcul
 
 ---
 
+### Step 5.8: Confirm Before Creating
+
+Present the final calculation to the user before creating it:
+
+```
+**Calculation ready to create:**
+
+- **Name:** {name}
+- **Type:** {fact-sheet | relation}
+- **Fact Sheet Type:** {type}
+- **Target Field:** {affectedFieldKey}
+- **Owner:** {displayName}
+
+**Code:**
+```javascript
+{code}
+```
+```
+
+Then ask using `AskUserQuestion`:
+
+**"Create this calculation?"**
+
+| Option | Description |
+|--------|-------------|
+| **Create** | Proceed with creation |
+| **Edit code** | Go back and modify the code |
+| **Cancel** | Abort |
+
+Only proceed to Step 6 if the user confirms.
+
+---
+
 ### Step 6: Create Calculation
 
 Use the MCP tool to create the calculation. The `owner_id` was selected in Step 5.7.
