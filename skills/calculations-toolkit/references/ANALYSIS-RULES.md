@@ -141,12 +141,11 @@ export function main() {
 
 **Detection:** `console.log(`, `console.warn(`, `console.error(`, etc.
 
-**Problem:** Console statements are useful for debugging but should be removed before creating the production calculation.
+**Problem:** Console statements are useful for debugging but should be removed from production calculations — output is not visible at runtime.
 
 **Example:**
 ```javascript
 export function main() {
-  console.log("Debug:", data.name);  // Remove before creating
   return data.count;
 }
 ```

@@ -380,8 +380,6 @@ Based on the goal, determine the calculation pattern:
 - [ ] Return single value matching target field type
 - [ ] Return `null` to clear field, `undefined` for no change
 
-> **Note:** `console.log()` is allowed and useful for debugging! During test-run, the output appears in the executor data. In production calculations, output is not visible.
-
 **Fact Sheet Calculation Template:**
 ```javascript
 /**
@@ -425,7 +423,6 @@ export function main() {
 
 The test-run executes your code in a sandbox against a real fact sheet without creating or modifying any calculation. Use it to:
 - **Validate logic** - Confirm the code returns expected values
-- **Debug with console.log** - Inspect data structures before creating
 - **Test edge cases** - Verify null/empty handling across different fact sheets
 
 **For fact-sheet calculations:**
@@ -488,7 +485,7 @@ A relation calculation runs against a specific edge between two fact sheets. Ide
 | `data` | The executor input — inspect to understand what `data.*` contains |
 
 **Debugging tips:**
-- Add `console.log(JSON.stringify(data))` to inspect available fields
+- Inspect `executorInput.data` in the test-run response to see available fields
 - Test with fact sheets that have different data (empty relations, missing fields)
 - If `success: false`, check that return type matches target field type
 
@@ -715,7 +712,7 @@ For each calculation, **validate against data model**:
 |-------|-------|----------|
 | Naming convention | `name` | Doesn't follow pattern |
 | Description | `description` | Empty or generic |
-| Code quality | `code` | Contains console.log, etc. |
+| Code quality | `code` | Contains debug statements, etc. |
 | Target field exists | `affectedFieldKey` | Not in data model |
 | Has errors | `errorCount` | > 0 |
 | Has config errors | `configurationErrorCount` | > 0 |
