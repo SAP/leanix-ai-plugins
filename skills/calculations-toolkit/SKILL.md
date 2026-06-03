@@ -11,7 +11,20 @@ allowed-tools:
   - Write
   - Edit
   - AskUserQuestion
-  - "mcp__leanix__*"
+  - mcp__leanix__list_calculations
+  - mcp__leanix__get_calculation
+  - mcp__leanix__create_calculation
+  - mcp__leanix__update_calculation
+  - mcp__leanix__enable_calculation
+  - mcp__leanix__disable_calculation
+  - mcp__leanix__delete_calculation
+  - mcp__leanix__test_run_calculation
+  - mcp__leanix__list_graphql_types
+  - mcp__leanix__get_graphql_type_definitions
+  - mcp__leanix__get_fact_sheet_types
+  - mcp__leanix__get_fact_sheet_details
+  - mcp__leanix__text_to_fact_sheets
+  - mcp__leanix__search_users
 ---
 
 # LeanIX Calculation Assistant
