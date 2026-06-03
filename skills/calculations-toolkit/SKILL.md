@@ -262,6 +262,16 @@ Options: [Custom fields from data model for selected type]
          [Show field types: Double, Integer, String, Single Select, etc.]
 ```
 
+> **If the target field doesn't exist yet:** The field must be created in the LeanIX admin UI before a calculation can populate it.
+>
+> **How to create a custom field:**
+> 1. Go to the fact sheet configuration page and select the subsection where you want the field
+> 2. Click **Add field**
+> 3. Configure the field parameters in the right-side panel
+> 4. Review and save the changes
+>
+> Full documentation: [Fact Sheet Fields – SAP Help](https://help.sap.com/docs/leanix/ea/fact-sheet-fields?q=create+custom+field)
+
 **Ask calculation type:**
 
 ```
