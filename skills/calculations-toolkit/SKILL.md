@@ -1,7 +1,6 @@
 ---
 name: calculations-toolkit
 description: Build, debug, and create LeanIX Calculations—populate computed fields from other fields and relations. Use when creating new calculations, debugging errors, understanding calculation capabilities, managing workspace calculations, or analyzing existing calculations. Covers target field types, field access patterns, relation data, templates, error patterns, and best practices.
-argument-hint: "[goal or calculation to debug]"
 license: Apache-2.0
 compatibility: Requires LeanIX MCP server for API access (mcp__leanix__* tools)
 metadata:
