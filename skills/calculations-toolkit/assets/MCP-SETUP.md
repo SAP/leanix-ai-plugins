@@ -59,14 +59,14 @@ Two header formats are supported:
 
 ## Client Configuration
 
-> **Note:** For automation development, append `?toolsets=inventory,automations` to the URL in all configurations below. Without this, automation tools won't be available.
+> **Note:** For calculations development, append `?toolsets=inventory,calculations,custom_reports` to the URL in all configurations below. Without this, calculation tools won't be available.
 
 ### Claude Code — OAuth (Simplest)
 
 One command, no tokens needed:
 
 ```bash
-claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"
+claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports"
 ```
 
 You'll be prompted to sign in via your browser. Re-authenticate every 24 hours.
@@ -80,7 +80,7 @@ For switching between workspaces using environment variables. Add to `.mcp.json`
   "mcpServers": {
     "leanix": {
       "type": "http",
-      "url": "https://${LEANIX_SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations",
+      "url": "https://${LEANIX_SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports",
       "headers": {
         "Authorization": "Token ${LEANIX_API_TOKEN}"
       }
@@ -114,7 +114,7 @@ Requires `npx` installed. Add to your Claude Desktop configuration:
       "args": [
         "-y",
         "mcp-remote",
-        "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations",
+        "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports",
         "--header",
         "Authorization: Token {YOUR-API-TOKEN}"
       ]
@@ -130,7 +130,7 @@ Requires `npx` installed. Add to your Claude Desktop configuration:
   "mcpServers": {
     "leanix": {
       "type": "streamableHttp",
-      "url": "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations",
+      "url": "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports",
       "headers": {
         "Authorization": "Token {YOUR-API-TOKEN}"
       }
@@ -146,7 +146,7 @@ Requires `npx` installed. Add to your Claude Desktop configuration:
   "mcpServers": {
     "leanix": {
       "transport": "streamableHttp",
-      "url": "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations",
+      "url": "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports",
       "headers": {
         "Authorization": "Token {YOUR-API-TOKEN}"
       }
@@ -159,14 +159,14 @@ Requires `npx` installed. Add to your Claude Desktop configuration:
 
 ## Toolsets
 
-The `automations` toolset is **hidden by default** and must be explicitly activated via the `?toolsets=` query parameter.
+The `calculations` toolset is **hidden by default** and must be explicitly activated via the `?toolsets=` query parameter.
 
-> **Important for automation development:** Without `?toolsets=automations`, tools like `list_automations`, `create_automation`, `get_automation_script` won't be available.
+> **Important for calculations development:** Without `?toolsets=calculations`, tools like `list_calculations`, `create_calculation`, `test_run_calculation` won't be available.
 
 Append `?toolsets=` to the MCP server URL:
 
 ```
-?toolsets=inventory,automations
+?toolsets=inventory,calculations,custom_reports
 ```
 
 When `?toolsets=` is specified, **only** the listed toolsets are returned (default toolsets are no longer included automatically unless listed).
@@ -177,17 +177,17 @@ When `?toolsets=` is specified, **only** the listed toolsets are returned (defau
 
 ### MCP tools not appearing
 
-- Verify `?toolsets=inventory,automations` is included in the URL
-- For Claude Code (OAuth): re-run `claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"`
+- Verify `?toolsets=inventory,calculations,custom_reports` is included in the URL
+- For Claude Code (OAuth): re-run `claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports"`
 - Restart Claude Desktop after configuration changes
 - Check the configuration file syntax (valid JSON)
 - Verify `mcp-remote` is installed: `npx -y mcp-remote --version`
 - Your role may not have permissions for the expected tools
 
-### Automation tools specifically missing
+### Calculation tools specifically missing
 
-- The `automations` toolset is **optional** — it's hidden unless explicitly requested
-- Ensure the URL includes `?toolsets=automations` (or `?toolsets=inventory,automations`)
+- The `calculations` toolset is **optional** — it's hidden unless explicitly requested
+- Ensure the URL includes `?toolsets=inventory,calculations,custom_reports`
 - When `?toolsets=` is specified, only listed toolsets are returned — add all toolsets you need
 
 ---

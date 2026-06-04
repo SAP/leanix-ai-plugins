@@ -154,12 +154,12 @@ The `calculations` toolset is **optional and hidden by default**. Display this m
 
 > **Calculation tools are not available.** Your MCP connection is missing the `calculations` toolset.
 >
-> Fix: Add `?toolsets=inventory,calculations` to your MCP server URL.
+> Fix: Add `?toolsets=inventory,calculations,custom_reports` to your MCP server URL.
 >
 > **Claude Code (OAuth):**
 > ```
 > claude mcp remove leanix
-> claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations"
+> claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports"
 > ```
 >
 > **Claude Code (.mcp.json):** Change the URL to:
@@ -177,7 +177,7 @@ Then **stop the workflow** — do not continue without calculation tools, as cre
 >
 > Quickest setup:
 > ```
-> claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations"
+> claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports"
 > ```
 >
 > See [MCP Setup](assets/MCP-SETUP.md) for full instructions.
