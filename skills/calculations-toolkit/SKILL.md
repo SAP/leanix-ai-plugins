@@ -615,6 +615,23 @@ Parameters:
 → **For creation details:** Load `references/API-REFERENCE.md`
 → **For error patterns:** Load `references/LEARNINGS.md`
 
+### Step 7: Enable Calculation
+
+Ask the user using `AskUserQuestion`:
+
+**"The calculation was created as inactive. Enable it now?"**
+
+| Option | Description |
+|--------|-------------|
+| **Enable now** | Activate the calculation so it starts computing values |
+| **Keep inactive** | Leave it inactive for manual review first |
+
+If the user chooses **Enable now**, call:
+```
+Tool: mcp__leanix__enable_calculation
+Parameters: { "id": "{calculation UUID from Step 6}" }
+```
+
 ### Step 6.5: Verify Creation
 
 After creating the calculation, verify it works correctly:
