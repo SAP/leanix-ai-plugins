@@ -69,10 +69,10 @@ Calculations are fundamentally different from Automations:
 
 ### Two Calculation Types
 
-| Type | Data Access | Use Case |
-|------|-------------|----------|
-| `fact-sheet` | `data.fieldName` | Field on the fact sheet itself |
-| `relation` | `data.factSheet.fieldName` | Field on a relation |
+| Type | Use Case |
+|------|----------|
+| `fact-sheet` | Compute a field value on a fact sheet using its own data |
+| `relation` | Compute a field value on a relation (the edge between two fact sheets) using data from either side |
 
 ---
 
