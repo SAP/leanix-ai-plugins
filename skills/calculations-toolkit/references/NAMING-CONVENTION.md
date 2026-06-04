@@ -96,6 +96,12 @@ Logic: Counts relations where related ITC lifecycle is 'active'
 
 ---
 
+## Custom Field Naming
+
+Do **not** use the `lx` prefix for custom field keys. The `lx` prefix is reserved for official LeanIX extensions.
+
+---
+
 ## Field Naming Alignment
 
 Calculation names should align with target field names:
