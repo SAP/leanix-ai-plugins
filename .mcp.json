@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "leanix": {
+      "type": "http",
+      "url": "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports"
+    }
+  }
+}
