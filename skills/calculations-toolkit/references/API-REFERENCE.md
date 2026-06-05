@@ -301,7 +301,7 @@ Parameters:
 After creating a calculation, provide the edit URL:
 
 ```
-https://{INSTANCE}.leanix.net/{WORKSPACE}/admin/calculations/edit/{ID}
+https://{INSTANCE}.leanix.net/{WORKSPACE}/admin/calculations/{ID}
 ```
 
 Components:
