@@ -14,7 +14,7 @@
       "author": {
         "name": "SAP LeanIX"
       },
-      "homepage": "https://github.com/SAP/leanix-ai-plugins",
+      "homepage": "https://github.com/SAP/leanix-ai-plugins/tree/main/skills/automations-toolkit",
       "repository": "https://github.com/SAP/leanix-ai-plugins",
       "license": "Apache-2.0",
       "keywords": ["leanix", "automations", "mcp", "sap", "enterprise"],
