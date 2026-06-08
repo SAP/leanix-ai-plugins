@@ -393,6 +393,7 @@ Based on the goal, determine the calculation pattern:
 - [ ] Use `export function main()` (never async)
 - [ ] Return single value matching target field type
 - [ ] Return `null` to clear field, `undefined` for no change
+- [ ] Add inline comments explaining non-obvious logic (e.g. why a fallback value is used, what a condition guards against)
 
 **Fact Sheet Calculation Template:**
 ```javascript
@@ -405,10 +406,16 @@ Based on the goal, determine the calculation pattern:
  */
 
 export function main() {
-  // Access fields directly: data.fieldName
-  // Your calculation logic here
+  // Guard: return null to clear the field if required source data is missing
+  if (!data.someRequiredField) return null;
 
-  return result;
+  // [Explain non-obvious logic, e.g. why a fallback value is used]
+  const value = data.someField ?? 0;
+
+  // [Explain what this condition guards against]
+  if (data.someRelation.length === 0) return null;
+
+  return value;
 }
 ```
 
@@ -424,10 +431,17 @@ export function main() {
  */
 
 export function main() {
-  // Access related fact sheet: data.factSheet.fieldName
-  // Your calculation logic here
+  // Guard: no value to compute if source field is unset on the related fact sheet
+  const sourceValue = data.factSheet.someField;
+  if (sourceValue == null) return null;
 
-  return result;
+  // [Explain distribution logic, weighting, or other non-obvious computation]
+  const count = data.factSheet.someRelation.length;
+
+  // Avoid division by zero when no related items exist
+  if (count === 0) return null;
+
+  return sourceValue / count;
 }
 ```
 
