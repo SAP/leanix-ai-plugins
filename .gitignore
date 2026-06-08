@@ -1,0 +1,12 @@
+# Local working files (Claude Code session scratch — not for distribution)
+marketplace-distribution.md
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Node (skill examples are .js — no project-level deps expected, but guard against accidental installs)
+node_modules/
