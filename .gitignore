@@ -1,0 +1,12 @@
+# Local working notes
+marketplace-distribution.md
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Node
+node_modules/

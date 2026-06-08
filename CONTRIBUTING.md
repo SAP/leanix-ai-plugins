@@ -87,6 +87,12 @@ Each plugin entry in `plugins[]` groups related skills under a single installabl
 
 6. **Validate** — the plugin is successfully installed and tested with Claude Code
 
+## Releases and Versioning
+
+This marketplace intentionally **does not pin a `version`** on plugin entries in [`marketplace.json`](.claude-plugin/marketplace.json). With no pinned version, Claude Code falls back to the git commit SHA, which means **every commit to `main` is treated as a new version** and reaches users on the next `/plugin marketplace update` (or auto-update). No manual bumping required.
+
+If you ever add a `version` field (either to a plugin entry in `marketplace.json` or to a `plugin.json`), you **must bump it on every release** — otherwise users keep their cached copy and never see your changes. See the [version resolution rules](https://code.claude.com/docs/en/plugin-marketplaces#version-resolution-and-release-channels). The top-level `metadata.version` is the marketplace manifest version (informational) and is separate from per-plugin versions.
+
 ## Branching and Pull Requests
 
 - Branch from `main`. Use descriptive branch names: `add-skill-<name>`, `fix-<skill>-<issue>`, `improve-<skill>-<what>`.
