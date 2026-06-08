@@ -618,7 +618,9 @@ Parameters:
   owner_id: "{USER_UUID from Step 5.7}"
 ```
 
-**Success:** Report the calculation ID and URL: `https://{INSTANCE}.leanix.net/{WORKSPACE}/admin/calculations/edit/{id}`
+**Success:** Report the calculation ID and URL: `https://{INSTANCE}.leanix.net/{WORKSPACE}/admin/calculations/{id}`
+
+> **Deriving INSTANCE and WORKSPACE:** If unknown, call `mcp__leanix__text_to_fact_sheets` with any query (e.g. `"Application"`) and extract the base URL from any fact sheet's `url` field — it will be in the form `https://{INSTANCE}.leanix.net/{WORKSPACE}/...`. All calculation URLs share the same base; only the `{id}` segment changes per calculation.
 
 → **For creation details:** Load `references/API-REFERENCE.md`
 → **For error patterns:** Load `references/LEARNINGS.md`
