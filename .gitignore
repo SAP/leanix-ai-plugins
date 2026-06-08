@@ -1,4 +1,4 @@
-# Local working files (Claude Code session scratch — not for distribution)
+# Local working notes
 marketplace-distribution.md
 
 # OS / editor
@@ -8,5 +8,5 @@ marketplace-distribution.md
 *.swp
 *~
 
-# Node (skill examples are .js — no project-level deps expected, but guard against accidental installs)
+# Node
 node_modules/
