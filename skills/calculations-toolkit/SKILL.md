@@ -125,7 +125,7 @@ Load these files **only when needed** for specific workflow steps:
 
 When invoked, ask the user using `AskUserQuestion`:
 
-**IMPORTANT: `AskUserQuestion` supports 2-4 options only.** Never pass more than 4 options.
+**IMPORTANT: `AskUserQuestion` supports 2–4 options only.** When there are more than 4 choices, list all options as a numbered list in plain text and ask the user to type their selection instead.
 
 **What do you need help with?**
 
@@ -253,13 +253,7 @@ Which fact sheet type should this calculation target?
 
 **Present fact sheet types from data model:**
 
-```
-Tool: AskUserQuestion
-
-"Which fact sheet type should this calculation target?"
-
-Options: [List from data model - NOT hardcoded list]
-```
+> **IMPORTANT: `AskUserQuestion` supports 2–4 options only.** When there are more than 4 choices (e.g., fact sheet types), do NOT use `AskUserQuestion`. Instead, list all options as a numbered list in plain text and ask the user to type their choice. Wait for the user's text reply before proceeding.
 
 **After user selects fact sheet type, present fields from data model:**
 
