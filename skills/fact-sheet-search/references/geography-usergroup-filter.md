@@ -1,9 +1,7 @@
-# Geography / UserGroup Filter Examples
+# Geography / Organization Filter Examples
 
-Geography in LeanIX is modelled via **UserGroup** fact sheets (countries, regions, legal entities).
-Applications and ITComponents link to UserGroups via `relApplicationToUserGroup` and `relITComponentToUserGroup`.
-
-**NEVER use `relApplicationToOrganization`** — it does not exist in the standard LeanIX data model.
+Geography in LeanIX is modelled via **Organization** fact sheets (countries, regions, legal entities). In some workspaces, it is called UserGroup instead of Organization, but the concept is the same.
+Applications and ITComponents link to Organizations via `relApplicationToOrganization` and `relITComponentToOrganization`.
 
 ---
 
@@ -12,8 +10,8 @@ Applications and ITComponents link to UserGroups via `relApplicationToUserGroup`
 ```
 Query mentions a geographic place or org name?
   │
-  ├─ Try fullTextSearch on UserGroup type to find a matching fact sheet UUID
-  │     → If UUID found: Pattern A (filter by UUID)
+  ├─ Try fullTextSearch on Organization type to find matching fact sheet UUIDs
+  │     → If one or more UUIDs found: Pattern A (filter by UUID — use ALL returned UUIDs)
   │     → If not found: Pattern B (subFilter fullTextSearch fallback)
   │
   └─ Multiple places mentioned?
@@ -23,12 +21,12 @@ Query mentions a geographic place or org name?
 
 ---
 
-## Pattern A — specific UserGroup found by UUID
+## Pattern A — specific Organization found by UUID
 
-Use `keys: ["<uuid>"]` on the relation facet:
+The resolve step may return **more than one** Organization (e.g. "Italy" and "Italy / Marketing" are both returned when searching for "Italy"). **Use ALL returned UUIDs in the `keys` array** — omitting any sub-org will miss applications linked only to that sub-org.
 
 ```graphql
-# "applications used in Spain" — "Spain" UserGroup found with id "b7c2b92d-...":
+# "applications used in Italy" — resolve step returned TWO orgs: "Italy" and "Italy / Marketing":
 query FactSheetSearch {
   allFactSheets(
     filter: {
@@ -36,9 +34,12 @@ query FactSheetSearch {
       facetFilters: [
         { facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }
         {
-          facetKey: "relApplicationToUserGroup"
+          facetKey: "relApplicationToOrganization"
           operator: OR
-          keys: ["b7c2b92d-4c1c-4018-96bc-88ffd478fb17"]
+          keys: [
+            "6890f3b3-3be5-420c-9650-3ae467fd53b8"
+            "e4488a8d-a810-4c3a-a8c0-a77153051c4c"
+          ]
         }
       ]
     }
@@ -53,12 +54,12 @@ query FactSheetSearch {
 
 ---
 
-## Pattern B — no specific UserGroup found (fallback subFilter)
+## Pattern B — no specific Organization found (fallback subFilter)
 
-When a geographic term like "Europe" has no single matching UserGroup UUID, use `subFilter: { fullTextSearch: "<term>" }` to match any UserGroup whose name contains the term:
+When a geographic term like "Europe" has no single matching Organization UUID, use `subFilter: { fullTextSearch: "<term>" }` to match any Organization whose name contains the term:
 
 ```graphql
-# "solutions used in Europe" — no single "Europe" UserGroup UUID found:
+# "solutions used in Europe" — no single "Europe" Organization UUID found:
 query FactSheetSearch {
   allFactSheets(
     filter: {
@@ -66,7 +67,7 @@ query FactSheetSearch {
       facetFilters: [
         { facetKey: "FactSheetTypes", operator: OR, keys: ["Application", "ITComponent"] }
         {
-          facetKey: "relApplicationToUserGroup"
+          facetKey: "relApplicationToOrganization"
           operator: OR
           keys: []
           subFilter: { fullTextSearch: "Europe" }
@@ -82,13 +83,13 @@ query FactSheetSearch {
 }
 ```
 
-Note: `keys: []` means "any related UserGroup, filtered by subFilter". The `subFilter.fullTextSearch` matches on the UserGroup fact sheet's name/description, not on the application's fields.
+Note: `keys: []` means "any related Organization, filtered by subFilter". The `subFilter.fullTextSearch` matches on the Organization fact sheet's name/description, not on the application's fields.
 
 ---
 
 ## Pattern C — "common to both" (used by Spain AND France)
 
-For "common software used by both Spain and France", use a single `relApplicationToUserGroup` filter with both UUIDs. The API applies AND logic when multiple keys are provided to the same relation facet:
+For "common software used by both Spain and France", use a single `relApplicationToOrganization` filter with both UUIDs. The API applies AND logic when multiple keys are provided to the same relation facet:
 
 ```graphql
 # "common software used by both Spain and France":
@@ -99,7 +100,7 @@ query FactSheetSearch {
       facetFilters: [
         { facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }
         {
-          facetKey: "relApplicationToUserGroup"
+          facetKey: "relApplicationToOrganization"
           operator: OR
           keys: [
             "b7c2b92d-4c1c-4018-96bc-88ffd478fb17"
@@ -131,7 +132,7 @@ query FactSheetSearch {
       facetFilters: [
         { facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }
         {
-          facetKey: "relApplicationToUserGroup"
+          facetKey: "relApplicationToOrganization"
           operator: OR
           keys: ["b7c2b92d-4c1c-4018-96bc-88ffd478fb17"]
         }
@@ -155,15 +156,15 @@ query FactSheetSearch {
 
 ## "NOT used in HQ" (negation)
 
-Negation + subFilter is forbidden — use a two-step approach: first find all apps linked to any UserGroup, then note the limitation:
+Negation + subFilter is forbidden — use a two-step approach: first find all apps linked to any Organization, then note the limitation:
 
 ```graphql
 # Step 1: apps used in any organization (positive side):
 {
-  facetKey: "relApplicationToUserGroup"
+  facetKey: "relApplicationToOrganization"
   operator: OR
   keys: []
-  subFilter: { facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["UserGroup"] }] }
+  subFilter: { facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["Organization"] }] }
 }
 # Then note: cannot exclude HQ in the same query — NOR + subFilter is not supported.
 ```
@@ -171,7 +172,7 @@ Negation + subFilter is forbidden — use a two-step approach: first find all ap
 If the HQ UUID is known, use `operator: NOR` on the relation facet (without subFilter):
 ```graphql
 # "apps NOT linked to Headquarter" (UUID known):
-{ facetKey: "relApplicationToUserGroup", operator: NOR, keys: ["2d570bfb-1569-41f2-9037-8897adb94469"] }
+{ facetKey: "relApplicationToOrganization", operator: NOR, keys: ["2d570bfb-1569-41f2-9037-8897adb94469"] }
 ```
 
 ---
@@ -180,10 +181,10 @@ If the HQ UUID is known, use `operator: NOR` on the relation facet (without subF
 
 | User says | LeanIX concept | Relation facet |
 |---|---|---|
-| used in Spain / France / Germany | UserGroup (country) | `relApplicationToUserGroup` |
-| used in Europe / APAC / EMEA | UserGroup (region) — use subFilter fallback | `relApplicationToUserGroup` |
-| used by headquarter / org unit | UserGroup | `relApplicationToUserGroup` |
-| legal entity / subsidiary | UserGroup | `relApplicationToUserGroup` |
-| location, country (on ITComponent) | `relITComponentToUserGroup` | `relITComponentToUserGroup` |
+| used in Spain / France / Germany | Organization (country) | `relApplicationToOrganization` |
+| used in Europe / APAC / EMEA | Organization (region) — use subFilter fallback | `relApplicationToOrganization` |
+| used by headquarter / org unit | Organization | `relApplicationToOrganization` |
+| legal entity / subsidiary | Organization | `relApplicationToOrganization` |
+| location, country (on ITComponent) | `relITComponentToOrganization` | `relITComponentToOrganization` |
 
 Do NOT use `facetKey: "location"` — location is a field on some fact sheet types but is not a reliable filter for geographic ownership queries.

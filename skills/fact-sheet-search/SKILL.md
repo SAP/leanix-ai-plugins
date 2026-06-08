@@ -24,13 +24,13 @@ allowed-tools:
 
 Answer questions about LeanIX fact sheets by choosing the right retrieval approach and executing it.
 
-**Always call `get_fact_sheet_types`, `get_all_fact_sheets_schema`, and `get_meta_model` first, before reasoning about the query.**
+**For most queries, call `get_fact_sheet_types`, `get_all_fact_sheets_schema`, and `get_meta_model` first, before reasoning about the query. Exception: see "Simple name / keyword lookup" below.**
 
 ---
 
 ## Choosing the retrieval approach
 
-After loading the workspace context, decide which approach fits the query.
+Decide which approach fits the query.
 
 **Always use `read_inventory`** for:
 - Lifecycle phase (phasing out, end of life, retiring)
@@ -41,16 +41,38 @@ After loading the workspace context, decide which approach fits the query.
 - Date ranges (created after, updated before)
 - Exact full name, brand name, code, or UUID lookup — use `fullTextSearch`
 - Any query where the answer depends on relations, field values, or metadata not stored in text descriptions
+- **Numeric field threshold queries** (cost > X, budget < Y, TCO greater than 100k) — see `references/numeric-field-filter.md`
 
 **Use `vector_search`** when the query is an **abbreviation, acronym, or partial name** that you cannot expand with confidence — e.g. "ac mgmt", "hr sys", "fin tool". Do NOT guess what the abbreviation stands for; let vector search find matches by semantic similarity.
 
+**Also use `vector_search`** for concept/intent queries where the answer is identifiable only through the fact sheet's description rather than its name — e.g. "do we have a calendar app?" (the answer may be an application whose name is "Confluence" but whose description mentions a calendar feature). For these queries:
+- Use the most specific meaningful noun in the query as the search term (e.g. `"calendar"`, not `"calendar app"`). Short, concrete terms score better than phrases.
+- Request the `description` field in the follow-up `read_inventory` so you can confirm relevance from the description text.
+- Also try `fullTextSearch: "<term>"` on the relevant fact sheet type as a parallel approach, using the most distinctive single word (e.g. `fullTextSearch: "calendar"`). Union results from both approaches.
+
+```graphql
+# Confirm the vector search candidate by fetching its description:
+query ConfirmCandidate {
+  allFactSheets(
+    filter: { responseOptions: { maxFacetDepth: 5 }, ids: ["<candidate-uuid>"] }
+    first: 1
+  ) {
+    edges {
+      node {
+        id displayName type
+        description
+      }
+    }
+  }
+}
+```
+
 **Do NOT use `vector_search`** for:
-- Concept or business intent queries ("marketing automation system", "invoice data apps") — embeddings only contain displayName, description, type, lxState, status, and category; whether a fact sheet matches a business concept is not reliably encoded
 - Queries about relations ("apps dependent on IBM", "apps used in Spain") — relations are **not** in embeddings
 - Queries about field values (lifecycle, completion %, maturity, TCO) — field values are **not** in embeddings
 - Queries about subscription/ownership — not in embeddings
 - Exact full name / code / UUID lookups — GraphQL `fullTextSearch` is more precise
-- Any query where the structured approach already has a clear filter path
+- Any query where a structured filter path exists (lifecycle, lxState, relation presence, field value)
 
 When in doubt, use `read_inventory` first. Only use `vector_search` if the query is an abbreviated or partial name and GraphQL `fullTextSearch` returns 0 results.
 
@@ -60,9 +82,9 @@ When in doubt, use `read_inventory` first. Only use `vector_search` if the query
 
 You are permitted to call **exactly these tools**:
 
-1. `get_fact_sheet_types` — called **once** at the start
-2. `get_all_fact_sheets_schema` — called **once** at the start
-3. `get_meta_model` — called **once** at the start (or once per fact sheet type if the query targets multiple specific types)
+1. `get_fact_sheet_types` — called **once** at the start, **only when needed** (see below)
+2. `get_all_fact_sheets_schema` — called **once** at the start, **only when needed** (see below)
+3. `get_meta_model` — called **once** at the start, **only when needed** (see below)
 4. `search_users` — called **at most once** to resolve a person's name to a UUID when the query names a specific subscriber/owner/responsible
 5. `read_inventory` — called to run a structured GraphQL query, and again for each pagination page
 6. `vector_search` — called with a natural language query when the structured approach is insufficient
@@ -73,9 +95,20 @@ You are permitted to call **exactly these tools**:
 
 ---
 
+## Simple name / keyword lookup — skip Step 0
+
+**If the query is a plain name, keyword, abbreviation, or acronym with no mention of fact sheet types, fields, relations, lifecycle, or ownership**, skip `get_fact_sheet_types`, `get_all_fact_sheets_schema`, and `get_meta_model` entirely:
+
+- **Full name or brand name** (e.g. "Salesforce", "SAP Concur", "IF-K14"): use `read_inventory` with `fullTextSearch: "<query>"` (no `FactSheetTypes` filter). If that returns 0 results, fall back to `vector_search("<query>")`.
+- **Abbreviation or partial name** (e.g. "ac mgmt", "hr sys", "fin tool"): go directly to `vector_search("<query>")` — `fullTextSearch` matches on individual tokens and returns too many false positives for short abbreviations.
+
+**If the query mentions a fact sheet type** (e.g. "applications", "IT components", "business capabilities") **or involves relations, fields, lifecycle, ownership, or filters**, proceed to Step 0 as normal.
+
+---
+
 ## Step 0 — Load Workspace Context
 
-Call `get_fact_sheet_types`, `get_all_fact_sheets_schema`, and `get_meta_model` in parallel.
+When the query requires knowledge of fact sheet types, fields, or relations, call `get_fact_sheet_types`, `get_all_fact_sheets_schema`, and `get_meta_model` in parallel.
 
 From `get_fact_sheet_types`: record all fact sheet type names — these are the only valid `FactSheetTypes` facet keys.
 
@@ -158,6 +191,21 @@ Valid keys: `"plan"`, `"phaseIn"`, `"active"`, `"phaseOut"`, `"endOfLife"`.
 Valid `dateFilter.type`: `TODAY`, `END_OF_MONTH`, `END_OF_YEAR`, `RANGE`, `RANGE_STARTS`, `RANGE_ENDS`.
 "Phasing out" → `"phaseOut"`. "End of life / decommissioned" → `"endOfLife"`.
 
+**`dateFilter.type` selection — pick the FIRST matching rule:**
+
+| Query phrasing | `dateFilter.type` | Notes |
+|---|---|---|
+| "currently …", "today", "right now", "as of now" | `TODAY` | No `from`/`to` needed |
+| "by end of this month" | `END_OF_MONTH` | No `from`/`to` needed |
+| "going out of life **this year**", "going out of life **in** \<year\>", "retiring **this year**", "retiring **in** \<year\>", "**entering** endOfLife this year / in \<year\>" | `RANGE_STARTS` | Phase *begins* within the year window: `from: "<year>-01-01"`, `to: "<year>-12-31"` |
+| "**currently** phased out", "state **at end of** this year" | `END_OF_YEAR` | No `from`/`to` needed — matches fact sheets already in that phase by year-end regardless of when they entered it |
+| "by end of this month" | `END_OF_MONTH` | No `from`/`to` needed |
+| "active **during** \<period\>", "in phaseOut **between** X and Y" | `RANGE` | Phase *overlaps* the window |
+| "starts phasing out **after** X" | `RANGE_STARTS` | `from: X`, `to: <far future>` |
+| "phaseOut ends **before** Y" | `RANGE_ENDS` | `to: Y` |
+
+**Key distinction:** "going out of life this year / in 2026" means the endOfLife phase *starts* this year → use `RANGE_STARTS` with `from: "2026-01-01"`, `to: "2026-12-31"`. Do NOT use `END_OF_YEAR` (that matches anything already in endOfLife by year-end, including fact sheets that entered it years ago).
+
 **2. Approval / workflow state** — rejected / approved / draft:
 
 ```graphql
@@ -175,6 +223,21 @@ Valid: `"DRAFT"`, `"APPROVED"`, `"REJECTED"`, `"BROKEN_QUALITY_SEAL"`.
 
 This is the only way to reach archived items — `allFactSheets` never returns them without this filter.
 User vocabulary: "trash", "trash bin", "deleted", "removed", "archived" → use `TrashBin` filter above.
+
+**Missing mandatory fields / data quality issues** — use `DataQuality` facet key:
+
+```graphql
+{ facetKey: "DataQuality", operator: OR, keys: ["_noResponsible_", "_noAccountable_", "_qualitySealBroken_", "_noDescription_", "_noLifecycle_"] }
+```
+
+`DataQuality` is a virtual facet (like `TrashBin`) — it does NOT appear in `get_meta_model` output. Use it whenever the query mentions "missing mandatory fields", "data quality issues", "incomplete", or "missing required information". Combine with other facet filters (type, org relation) as normal. Known keys:
+- `"_noResponsible_"` — no responsible subscriber
+- `"_noAccountable_"` — no accountable subscriber
+- `"_qualitySealBroken_"` — quality seal broken
+- `"_noDescription_"` — no description
+- `"_noLifecycle_"` — no lifecycle set
+
+Do NOT use `completion` score as a proxy for missing mandatory fields — `DataQuality` is the direct, correct filter.
 
 **3. Subscription / ownership** — missing owner, has responsible, etc.:
 
@@ -294,25 +357,178 @@ When the query spans three fact sheet types (App → Interface → ITComponent, 
 
 *Pattern D — related FS matched by lifecycle phase* (`lifecycle` facet with `dateFilter` in subFilter):
 ```graphql
-# "apps with technology going out of life this year" — ITComponent lifecycle endOfLife in current year:
+# "apps with technology going out of life in 2026" — ITComponent enters endOfLife in 2026:
 { facetKey: "relApplicationToITComponent", operator: OR, keys: [],
+  relationFieldsFilterOperator: INCLUSIVE,
   subFilter: { facetFilters: [
     { facetKey: "FactSheetTypes", operator: OR, keys: ["ITComponent"] },
-    { facetKey: "lifecycle", operator: OR, keys: ["endOfLife"], dateFilter: { type: RANGE, from: "2026-01-01", to: "2026-12-31" } }
+    { facetKey: "lifecycle", operator: OR, keys: ["endOfLife"], dateFilter: { type: RANGE_STARTS, from: "2026-01-01", to: "2026-12-31" } }
   ] } }
 ```
 `dateFilter` is valid inside `subFilter.facetFilters` on the `lifecycle` facet, same as at the top level.
+
+`relationFieldsFilterOperator: INCLUSIVE` — add this to the relation facet whenever the subFilter uses a `dateFilter`. It ensures apps are included when **at least one** related ITComponent matches the date condition. Omitting it can cause the date filter to exclude apps that have other ITComponents not matching the date.
 
 Standard relations for `Application`: `relApplicationToITComponent`, `relApplicationToUserGroup`, `relApplicationToBusinessCapability`, `relApplicationToBusinessContext`, `relApplicationToDataObject`, `relApplicationToInterface`, `relApplicationToProvider`, `relProviderApplicationToInterface`, `relConsumerApplicationToInterface`.
 
 subFilter rules: one level deep (no `subFilter` inside a `subFilter`); only on relation facets; `subFilter.facetFilters` supports the same field and relation facet keys as top level; `dateFilter` valid on `lifecycle` inside `subFilter.facetFilters`; never combine `operator: NOR` with `subFilter`.
 
-**Two-step negation is not possible in one query** ("apps for BCs that don't belong to IT", "software used in countries but not HQ country"): combining `subFilter` with `operator: NOR` is forbidden. When the concept has no filterable field (e.g. "non-IT BCs" — there is no `isIT` field on BusinessCapability), execute the **positive side** immediately and note the limitation. Do NOT attempt `subFilter.fullTextSearch` on the concept word as a workaround.
+**Exclusion by a specific named FS (e.g. "everywhere except headquarters"):**
+When the query names a specific organisational unit to exclude (e.g. "headquarters", "holding company", "parent org"), resolve it to a UUID first, then use `operator: NOR` with that UUID — **no subFilter needed on the NOR facet**:
 
-**Positive side** means: return all apps that have *any* relation of that type, without filtering the related FS:
+1. Search for the named org: `read_inventory` with `facetFilters: [{ facetKey: "FactSheetTypes", keys: ["Organization"] }]` and `fullTextSearch: "<name>"`. If `fullTextSearch` returns 0 results, fall back to `vector_search("<name>")` to find the UUID, then proceed.
+2. Apply NOR with the found UUID. **Relation facet keys are type-specific** — `relApplicationToOrganization` only works for `Application`; `relITComponentToOrganization` only works for `ITComponent`. For "software"/"solutions" queries that cover both types, **run two parallel `read_inventory` calls** (one per type) and merge the results.
+
+**The exclusion requires TWO separate facet entries on the same relation — not one:**
+- Entry 1: `operator: OR, keys: [], subFilter: ...` — requires that the item has *at least one* org link (so unlinked items are excluded from the result)
+- Entry 2: `operator: NOR, keys: ["<uuid>"]` — excludes items linked to the specific named org
+
 ```graphql
-# "apps for BCs that don't belong to IT" — positive side only (all apps linked to any BC):
-{ facetKey: "relApplicationToBusinessCapability", operator: OR, keys: [] }
+# Query A — Applications linked to some org but NOT to the named org (e.g. HQ)
+query AppsNotHQ {
+  allFactSheets(
+    filter: {
+      responseOptions: { maxFacetDepth: 5 }
+      facetFilters: [
+        { facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }
+        {
+          facetKey: "relApplicationToOrganization"
+          operator: OR
+          keys: []
+          relationFieldsFilterOperator: INCLUSIVE
+          subFilter: {
+            facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["Organization"] }]
+          }
+        }
+        { facetKey: "relApplicationToOrganization", operator: NOR, keys: ["<hq-uuid>"] }
+      ]
+    }
+    first: 500
+  ) {
+    edges { node { id displayName type } }
+    totalCount
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+# Query B — ITComponents linked to some org but NOT to the named org
+query ITCompNotHQ {
+  allFactSheets(
+    filter: {
+      responseOptions: { maxFacetDepth: 5 }
+      facetFilters: [
+        { facetKey: "FactSheetTypes", operator: OR, keys: ["ITComponent"] }
+        {
+          facetKey: "relITComponentToOrganization"
+          operator: OR
+          keys: []
+          relationFieldsFilterOperator: INCLUSIVE
+          subFilter: {
+            facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["Organization"] }]
+          }
+        }
+        { facetKey: "relITComponentToOrganization", operator: NOR, keys: ["<hq-uuid>"] }
+      ]
+    }
+    first: 500
+  ) {
+    edges { node { id displayName type } }
+    totalCount
+    pageInfo { hasNextPage endCursor }
+  }
+}
+```
+
+Merge the results from both queries (deduplicate by `id`). Use `first: 500` — do NOT paginate.
+
+**WRONG — do NOT use `subFilter: { ids: [...] }` for exclusion.** This pattern matches items *linked to* the specified UUID (inclusion), not items that exclude it:
+```graphql
+# ❌ WRONG — this finds items linked TO the HQ, not items excluding it:
+{ facetKey: "relApplicationToOrganization", operator: OR, keys: [], subFilter: { ids: ["<hq-uuid>"] } }
+
+# ✅ CORRECT — separate NOR facet entry with the UUID:
+{ facetKey: "relApplicationToOrganization", operator: NOR, keys: ["<hq-uuid>"] }
+```
+
+See `references/multi-hop-filter.md` Pattern F for additional context.
+
+**Intersection across multiple related fact sheets (operator: AND):**
+When the query asks for apps linked to **all** of a set of named fact sheets (e.g. "software used in both Spain and France", "apps used by both Sales and Finance teams", "common software between two countries/orgs") — use **Pattern G** from `references/multi-hop-filter.md`.
+
+**Two mandatory steps — you MUST complete both before presenting results:**
+
+1. **Resolve names to UUIDs** via `read_inventory` with `fullTextSearch: "<name>"` + the correct `FactSheetTypes` filter (use GraphQL aliases to resolve all names in one call). **This step produces lookup data — it is NOT the final answer.**
+2. **Execute the AND intersection** using the collected UUIDs:
+```graphql
+{ facetKey: "relApplicationToOrganization", operator: AND, keys: ["<spain-uuid>", "<france-uuid>"] }
+```
+
+**CRITICAL:** `keys` must contain **UUIDs only** — never literal display names like `"Spain"` or `"France"`. Literal names silently return 0 results. After Step 1 you MUST proceed to Step 2 — do NOT stop after UUID resolution.
+
+Use `first: 500` on the intersection query (result sets are often large). Use `operator: OR` only when you want apps linked to **any** of the listed UUIDs (union). Use `operator: AND` for intersection ("both", "all of", "common to").
+
+**Finding Initiatives (projects) linked to named Applications — two-step via UUID list (Pattern H):**
+When the query asks for projects/initiatives running around a named technology or application (e.g. "projects around SAP", "initiatives for Salesforce"), the name refers to **Application** fact sheets, not Initiative names. Use a two-step approach:
+
+1. **Resolve application UUIDs:** `read_inventory` with `fullTextSearch: "<name>"` + `FactSheetTypes: ["Application"]`. If `fullTextSearch` returns 0 results, fall back to `vector_search("<name>")`. Collect all matching application UUIDs.
+2. **Find Initiatives linked to those apps:** use `relInitiativeToApplication` with the collected UUIDs in `keys` and an OR+subFilter to constrain to Application type:
+```graphql
+{ facetKey: "FactSheetTypes", operator: OR, keys: ["Initiative"] }
+{ facetKey: "relInitiativeToApplication", operator: OR, keys: ["<app-uuid-1>", "<app-uuid-2>", ...],
+  relationFieldsFilterOperator: INCLUSIVE,
+  subFilter: { facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }] } }
+```
+
+**Precision tightening (ALWAYS run this as Step 3):** Step 2 returns any Initiative that incidentally links to even one of the named apps, including broad cross-portfolio initiatives. Always apply two checks: first run `fullTextSearch: "<name>"` on `Initiative` type and keep only Initiatives that appear in **both** the Step 2 result and this complement (non-empty intersection = good precision). If the intersection is empty, fetch the full application link list for each Step 2 initiative and keep only those where **all linked apps** are from the Step 1 seed set (ratio = 1.0 means the initiative is focused exclusively on the named technology). If the ratio filter also yields nothing, return the Step 2 result alone. See `references/multi-hop-filter.md` Pattern H for full query examples.
+
+See `references/multi-hop-filter.md` Pattern H for the full query and complement step.
+
+**Negation by named related fact sheet — use NOR + UUID (same as Pattern F):**
+When the excluded group is identified by a **named fact sheet** (e.g. "not Information Technology", "not the IT capability", "excluding the Finance BC"), resolve the name to a UUID and apply `operator: NOR` — exactly like Pattern F for organisations:
+
+1. Resolve the named BC: `read_inventory` with `fullTextSearch: "Information Technology"` + `FactSheetTypes: ["BusinessCapability"]`
+2. Apply NOR with the found UUID using `first: 500` (do NOT paginate — return all from this single call):
+```graphql
+query FactSheetSearch {
+  allFactSheets(
+    filter: {
+      responseOptions: { maxFacetDepth: 5 }
+      facetFilters: [
+        { facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }
+        { facetKey: "relApplicationToBusinessCapability", operator: OR, keys: [] }
+        { facetKey: "relApplicationToBusinessCapability", operator: NOR, keys: ["<it-bc-uuid>"] }
+      ]
+    }
+    first: 500
+  ) {
+    edges { node { id displayName type } }
+    totalCount
+    pageInfo { hasNextPage endCursor }
+  }
+}
+```
+Note in the response that apps linked to **child BCs** of "Information Technology" may still appear, since the API cannot recursively exclude descendants in one query.
+
+**Two-step negation is not possible when the exclusion criterion is a pure concept with no matching named fact sheet** (e.g. "non-IT" when no BC named "IT" or "Information Technology" exists, "non-commodity" when there is no BC by that name): combining `subFilter` with `operator: NOR` is forbidden. Only in this case, execute the **positive side** immediately and note the limitation. Do NOT attempt `subFilter.fullTextSearch` on the concept word as a workaround.
+
+**Positive side** means: return all apps that have *any* relation of that type, without filtering the related FS. Use `first: 500`. Do NOT paginate:
+```graphql
+query FactSheetSearch {
+  allFactSheets(
+    filter: {
+      responseOptions: { maxFacetDepth: 5 }
+      facetFilters: [
+        { facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }
+        { facetKey: "relApplicationToBusinessCapability", operator: OR, keys: [] }
+      ]
+    }
+    first: 500
+  ) {
+    edges { node { id displayName type } }
+    totalCount
+    pageInfo { hasNextPage endCursor }
+  }
+}
 ```
 Report: "Returning all applications linked to a Business Capability. Filtering to exclude IT-domain BCs is not possible in one query as the API does not support NOR with subFilter."
 
@@ -320,13 +536,15 @@ Do NOT loop trying to construct the negative side. Do NOT use `fullTextSearch` o
 
 **6. Missing relation (negation):**
 
+Use `keys: ["__missing__"]` with `operator: OR` on the relation facet to find fact sheets where the relation is absent:
+
 ```graphql
-{ facetKey: "relApplicationToITComponent", operator: NOR, keys: [] }
+{ facetKey: "relApplicationToITComponent", operator: OR, keys: ["__missing__"] }
 ```
 
-`operator: NOR` must NOT have `subFilter`.
+Vocabulary triggers: "without", "missing", "no IT components", "lacking", "not linked to any", "no relation to X", "not used in any".
 
-"Not used in any process" / "no relation to X" → use NOR on the relevant relation facet. Execute immediately.
+Alternatively, `operator: NOR, keys: []` also excludes fact sheets that have any relation of that type. Prefer `__missing__` when the intent is "relation is unfilled/absent". `operator: NOR` must NOT have `subFilter`.
 
 **7. Sort / ordering:**
 
@@ -409,6 +627,31 @@ Always combine with a `FactSheetTypes` facet filter to narrow results — withou
 
 For **single-token code lookups** (e.g. "IF-K14", "APP-003") where the query is just an identifier with no other context, use `first: 1` — the correct fact sheet will be the top result.
 
+**Name prefix queries** ("starting with X", "whose name begins with X") — do NOT use `fullTextSearch` or `quickSearch` for this. Both tokenize the query string on hyphens, spaces, and other separators, which causes false matches (e.g. `quickSearch: "IF-L"` matches `IF LDAP` because both contain the tokens `IF` and `L`). Instead, fetch all fact sheets of the relevant type sorted by `displayName` ascending and filter client-side:
+
+```graphql
+# "interfaces whose name starts with IF-L":
+query AllInterfacesByName($cursor: String) {
+  allFactSheets(
+    filter: {
+      responseOptions: { maxFacetDepth: 5 }
+      facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["Interface"] }]
+    }
+    first: 200
+    after: $cursor
+    sort: [{ key: "displayName", order: asc }]
+  ) {
+    edges { node { id displayName type } }
+    totalCount
+    pageInfo { hasNextPage endCursor }
+  }
+}
+# Keep only items where displayName starts with "IF-L" (exact character match).
+# Paginate until hasNextPage is false or the first item no longer matches the prefix.
+```
+
+Do NOT use `vector_search` for prefix queries — it ranks by semantic similarity, not by string prefix.
+
 **12. Lifecycle scope — always include all relevant types:**
 
 "Planning to retire" / "phasing out" queries should include **all fact sheet types** that can have a lifecycle, not just Application. ITComponents, Interfaces, and other types also retire. Use multiple type keys:
@@ -423,39 +666,53 @@ No numeric range filter exists. Sort ascending + large `first:` value and return
 
 **Maturity level** — the facet key is `"maturityLevel"` with string keys `"1"`, `"2"`, `"3"`, `"4"`, `"5"`. If the API rejects it with `INVALID_FACET_KEY`, the workspace does not expose this facet — report that and return all fact sheets of that type sorted by name.
 
+**Hierarchy level (BusinessCapability and other hierarchical types)** — the facet key is `"level"` with **1-based** string keys: `"1"` = root tier, `"2"` = second tier, `"3"` = third tier, etc. The key value matches exactly what the user says: "level 3" → `keys: ["3"]`. Do NOT subtract 1.
+
+```graphql
+# "business capabilities at level 3 without any related application":
+facetFilters: [
+  { facetKey: "FactSheetTypes", operator: OR, keys: ["BusinessCapability"] }
+  { facetKey: "level", operator: OR, keys: ["3"] }
+  { facetKey: "relBusinessCapabilityToApplication", operator: OR, keys: ["__missing__"] }
+]
+```
+
+Combine `level` with other facet filters freely (lifecycle, relation presence/absence, field values). Do NOT select `level` as a node field and manually filter in post-processing — use the facet filter directly.
+
 **Aggregation queries** ("providers relied on by more than 3 apps", "TCO greater than 100k"): no COUNT or GROUP BY exists. Fetch all items of the relevant type with `first: 200` and return the full list — note that filtering by count or numeric threshold requires post-processing. Execute immediately. Do NOT loop.
 
 **14. Fallback:** combine type filter + `fullTextSearch` with most distinctive noun phrases.
 
-**15. Intentionally empty relations (`naFields`):**
+**15. Intentionally empty relations (`__empty__` / `naFields`):**
 
-`naFields` filters for relations explicitly marked "Leave Empty on Purpose" (an intentional decision, distinct from just not being filled in). Use it when the user says "intentionally empty", "marked as N/A", "no IT component assigned on purpose", or "leave empty".
+Use when the user says "intentionally not used in", "we know are not used in", "deliberately excluded from", "marked as N/A", "leave empty on purpose", or "not applicable". This is distinct from simply unfilled/missing.
+
+Preferred approach — use `__empty__` as the key in `facetFilters` on the relation:
 
 ```graphql
-query FactSheetSearch {
-  allFactSheets(
-    filter: {
-      responseOptions: { maxFacetDepth: 5 }
-      naFields: ["relApplicationToITComponent"]
-      facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }]
-    }
-    first: 50
-  ) {
-    edges { node { id displayName type } }
-    totalCount
-    pageInfo { hasNextPage endCursor }
-  }
+{ facetKey: "relApplicationToBusinessContext", operator: OR, keys: ["__empty__"] }
+```
+
+Alternative — use the top-level `naFields` argument:
+
+```graphql
+filter: {
+  responseOptions: { maxFacetDepth: 5 }
+  naFields: ["relApplicationToITComponent"]
+  facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }]
 }
 ```
 
 Distinction from `__missing__`:
-- `__missing__` = unfilled (unknown / neglected)
-- `naFields` = intentionally empty (explicit "Leave Empty" decision by a user)
+- `__missing__` = unfilled (relation not yet set — unknown or neglected)
+- `__empty__` / `naFields` = intentionally empty (explicit "Leave Empty on Purpose" decision by a user)
 
 **Queries that cannot be answered with available tools — report immediately, do NOT retry:**
 
 - **Calculated/derived metrics**: Fields computed on the fly by backend services (e.g. aggregated obsolescence risk, technology risk scores) are not stored on fact sheets and not filterable. Report: "This metric is calculated dynamically and is not available as a filterable fact sheet field."
 - **`category` as a process indicator**: `category` is a single-select field whose valid values differ per fact sheet type. For `BusinessContext`, `category` can be `"process"` — but querying "used in a process" means filtering by `BusinessContext` fact sheets where `category = "process"`, then finding Applications related to them via `subFilter`. This is a multi-hop query; use `relApplicationToBusinessContext` with a `subFilter` on `category`.
+
+  **Disambiguation**: if the query says "we know are not used in any process" / "intentionally not used in any process" / "deliberately excluded from processes" — this is **not** a `category` subFilter query. It means the `relApplicationToBusinessContext` relation is intentionally empty. Use `__empty__` on that relation (see rule 15 above), not a subFilter.
 
 ### Do NOT
 
@@ -488,6 +745,8 @@ Distinction from `__missing__`:
 Call `read_inventory` with your query string.
 
 **Paginate when the user asks for ALL items** ("all", "list all", "how many", "which ones", threshold queries like "below 40%"): add `after: "<endCursor>"` on each subsequent call and accumulate results until `hasNextPage` is `false`.
+
+**Exception — do NOT paginate** when the instructions explicitly say "use `first: 500`, do NOT paginate": this applies to AND intersection queries (Pattern G), NOR+UUID exclusion queries, and positive-side fallback queries. These use `first: 500` to fetch all results in one call. If `hasNextPage` is still `true` after the `first: 500` call, report the available results and note that the result set exceeds 500.
 
 If `read_inventory` returns an error: read it, fix only the query, retry up to 3 times.
 

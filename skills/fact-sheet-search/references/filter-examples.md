@@ -272,7 +272,7 @@ query FactSheetSearch {
   ) { edges { node { id displayName type } } totalCount pageInfo { hasNextPage endCursor } }
 }
 
-# "applications used in Europe" (App → UserGroup in Europe):
+# "applications used in Europe" (App → Organization in Europe):
 query FactSheetSearch {
   allFactSheets(
     filter: {
@@ -280,11 +280,11 @@ query FactSheetSearch {
       facetFilters: [
         { facetKey: "FactSheetTypes", operator: OR, keys: ["Application"] }
         {
-          facetKey: "relApplicationToUserGroup"
+          facetKey: "relApplicationToOrganization"
           operator: OR
           keys: []
           subFilter: {
-            facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["UserGroup"] }]
+            facetFilters: [{ facetKey: "FactSheetTypes", operator: OR, keys: ["Organization"] }]
             fullTextSearch: "Europe"
           }
         }
