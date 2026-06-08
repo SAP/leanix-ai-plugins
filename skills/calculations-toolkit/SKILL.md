@@ -123,7 +123,16 @@ Load these files **only when needed** for specific workflow steps:
 
 ### Step 0: Determine Intent
 
-When invoked, ask the user using `AskUserQuestion`:
+**First, check if the user's message already expresses clear intent.** If it does, skip `AskUserQuestion` and branch directly:
+
+| If the user's message contains… | Branch to |
+|----------------------------------|-----------|
+| "what can", "what does", "capabilities", "help me", "do for me" | [Understand Capabilities] |
+| "create", "build", "new calculation", "add a calculation" | [Create New Calculation] |
+| "debug", "fix", "error", "not working", "broken" | [Debug Failing Calculation] |
+| "list", "manage", "show", "audit", "analyze", "existing" | [Manage Workspace Calculations] |
+
+**Only ask if intent is genuinely ambiguous.** Use `AskUserQuestion`:
 
 **IMPORTANT: `AskUserQuestion` supports 2–4 options only.** When there are more than 4 choices, list all options as a numbered list in plain text and ask the user to type their selection instead.
 
