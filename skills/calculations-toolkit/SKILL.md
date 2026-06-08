@@ -782,6 +782,8 @@ Tool: mcp__leanix__list_calculations
 
 Returns all calculations in the workspace with their metadata, status, and error counts.
 
+> **Display rule:** Never surface raw API response metadata (`hasNextPage`, `nextCursor`, pagination counts) to the user. Only present calculation data itself.
+
 ### Step 4: Analyze Calculations
 
 For each calculation, **validate against data model**:
