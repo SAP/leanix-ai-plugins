@@ -112,7 +112,6 @@ Load these files **only when needed** for specific workflow steps:
 | `references/API-REFERENCE.md` | Creating calculations (Step 6) | API endpoints, CalculationDto |
 | `references/TEMPLATES.md` | Generating code (Step 5) | Ready-to-use calculation templates |
 | `references/LEANIX-MODEL.md` | Understanding field types | Fact sheet types, relations, field access |
-| `references/LEARNINGS.md` | Debugging errors **or** activating a calculation | API error patterns, activation gotchas, known fixes |
 | `references/NAMING-CONVENTION.md` | Standardizing names | Naming convention |
 | `references/ANALYSIS-RULES.md` | Analyzing calculations | Code analysis rules, workspace checks |
 | `assets/MCP-SETUP.md` | Setting up MCP connection | MCP server configuration |
@@ -633,7 +632,6 @@ Parameters:
 > **Deriving INSTANCE and WORKSPACE:** If unknown, call `mcp__leanix__text_to_fact_sheets` with any query (e.g. `"Application"`) and extract the base URL from any fact sheet's `url` field — it will be in the form `https://{INSTANCE}.leanix.net/{WORKSPACE}/...`. All calculation URLs share the same base; only the `{id}` segment changes per calculation.
 
 → **For creation details:** Load `references/API-REFERENCE.md`
-→ **For error patterns:** Load `references/LEARNINGS.md`
 
 ### Step 7: Enable Calculation
 
