@@ -13,6 +13,7 @@ The skills in this repository are designed to work with the [LeanIX MCP Server](
 | Skill | Description |
 |-------|-------------|
 | [automations-toolkit](skills/automations-toolkit/) | Build, debug, and deploy LeanIX automation scripts |
+| [fact-sheet-search](skills/fact-sheet-search/) | Answer natural language questions about LeanIX fact sheets using GraphQL or vector search |
 
 ## Requirements and Setup
 
@@ -21,6 +22,7 @@ This repository is also a [Claude Code plugin marketplace](https://code.claude.c
 ```shell
 /plugin marketplace add SAP/leanix-ai-plugins
 /plugin install automations-toolkit@leanix-ai-plugins
+/plugin install fact-sheet-search@leanix-ai-plugins
 ```
 
 For other agents (Cursor, Gemini CLI, Codex, etc.), point the agent at the skill directory directly.
