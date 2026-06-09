@@ -322,14 +322,15 @@ For **relation** calculations, present:
 
 **Data Access Reference:**
 
-| Source Type | Fact-Sheet Calc | Relation Calc |
-|-------------|-----------------|---------------|
-| **Same fact sheet field** | `data.fieldName` | N/A |
-| **Related fact sheet field** | N/A | `data.factSheet.fieldName` |
-| **Lifecycle** | `data.lifecycle.currentPhase` | `data.factSheet.lifecycle.currentPhase` |
-| **Relations** | `data.{relationName}` | N/A |
-| **Related FS field via relation** | `data.{relationName}[i].factsheet.{field}` | N/A |
-| **Relation attribute** | `data.{relationName}[i].{attributeName}` | N/A |
+| Source Type                           | Fact-Sheet Calc | Relation Calc |
+|---------------------------------------|-----------------|---------------|
+| **Same fact sheet field**             | `data.fieldName` | N/A |
+| **Related fact sheet field**          | N/A | `data.factSheet.fieldName` |
+| **Lifecycle**                         | `data.lifecycle.currentPhase` | `data.factSheet.lifecycle.currentPhase` |
+| **Relations**                         | `data.{relationName}` | N/A |
+| **Related FS field via relation**     | `data.{relationName}[i].factsheet.{field}` | N/A |
+| **Relation attribute**                | `data.{relationName}[i].{attributeName}` | N/A |
+| **NA fields** (not applicable fields) | `data.naFields` — `string[]` of field keys | `data.factSheet.naFields` |
 
 > **Note:** Replace `{relationName}`, `{field}`, `{attributeName}` with actual names from data model.
 
@@ -882,6 +883,7 @@ Summarize:
 // Target: field on the fact sheet itself
 data.fieldName                    // Direct field access
 data.lifecycle.currentPhase       // Lifecycle phase ("plan", "phaseIn", "active", "phaseOut", "endOfLife")
+data.naFields                     // string[] of field keys intentionally left blank (NA)
 data.relationName                 // Relation array
 data.relationName[0].factsheet    // Related fact sheet
 data.relationName[0].factsheet.fieldName  // Field on related FS
@@ -890,6 +892,7 @@ data.relationName[0].factsheet.fieldName  // Field on related FS
 // Target: field on a relation
 data.factSheet.fieldName          // Related fact sheet's field
 data.factSheet.lifecycle.currentPhase  // Related fact sheet's lifecycle
+data.factSheet.naFields           // NA fields on the related fact sheet
 ```
 
 **Return Values:**

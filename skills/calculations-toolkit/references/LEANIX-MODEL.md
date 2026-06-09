@@ -72,6 +72,21 @@ data.lifecycle.endOfLife      // "YYYY-MM-DD" or undefined
 data.lifecycle.upcomingPhase  // next phase name, or null
 ```
 
+### NA Fields (Intentionally Blank Relations)
+
+`naFields` is a `string[]` of relation keys that have been intentionally marked as not applicable.
+
+```javascript
+// Fact-sheet calculation
+data.naFields                          // e.g. ["relApplicationToOrganization"]
+
+// Relation calculation
+data.factSheet.naFields
+
+// Check if a specific relation is intentionally blank
+const isNA = (data.naFields ?? []).includes("relApplicationToOrganization");
+```
+
 ### Relation Access
 
 Relations return **arrays directly** - no GraphQL query needed:
