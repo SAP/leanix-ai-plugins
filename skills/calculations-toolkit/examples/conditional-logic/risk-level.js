@@ -22,7 +22,7 @@ export function main() {
   riskScore += criticalityScore[criticality] ?? 15;
 
   // Factor 2: Lifecycle phase (0-25 points)
-  const phase = data.lifecycle?.phaseName;
+  const phase = data.lifecycle?.currentPhase;
   const phaseScore = {
     plan: 10,
     phaseIn: 5,
@@ -35,7 +35,7 @@ export function main() {
   // Factor 3: ITC obsolescence (0-25 points)
   const itcs = data.relApplicationToITComponent ?? [];
   const eolItcs = itcs.filter(
-    r => r.factsheet?.lifecycle?.phaseName === "endOfLife"
+    r => r.factsheet?.lifecycle?.currentPhase === "endOfLife"
   ).length;
   if (itcs.length > 0) {
     const eolRatio = eolItcs / itcs.length;

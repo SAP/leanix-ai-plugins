@@ -10,7 +10,7 @@
 
 export function main() {
   const criticality = data.businessCriticality ?? "Unknown criticality";
-  const phase = data.lifecycle?.phaseName ?? "unknown";
+  const phase = data.lifecycle?.currentPhase ?? "unknown";
   const itcCount = (data.relApplicationToITComponent ?? []).length;
 
   // Format criticality for display

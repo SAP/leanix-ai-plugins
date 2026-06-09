@@ -314,11 +314,11 @@ Options:
 For **fact-sheet** calculations, present:
 1. **Fields on the fact sheet** - From data model for selected type
 2. **Relations** - From data model, show relation names
-3. **Lifecycle** - `data.lifecycle.phaseName`
+3. **Lifecycle** - `data.lifecycle.currentPhase`
 
 For **relation** calculations, present:
 1. **Fields on related fact sheet** - `data.factSheet.fieldName`
-2. **Lifecycle of related fact sheet** - `data.factSheet.lifecycle.phaseName`
+2. **Lifecycle of related fact sheet** - `data.factSheet.lifecycle.currentPhase`
 
 **Data Access Reference:**
 
@@ -326,7 +326,7 @@ For **relation** calculations, present:
 |-------------|-----------------|---------------|
 | **Same fact sheet field** | `data.fieldName` | N/A |
 | **Related fact sheet field** | N/A | `data.factSheet.fieldName` |
-| **Lifecycle** | `data.lifecycle.phaseName` | `data.factSheet.lifecycle.phaseName` |
+| **Lifecycle** | `data.lifecycle.currentPhase` | `data.factSheet.lifecycle.currentPhase` |
 | **Relations** | `data.{relationName}` | N/A |
 | **Related FS field via relation** | `data.{relationName}[i].factsheet.{field}` | N/A |
 | **Relation attribute** | `data.{relationName}[i].{attributeName}` | N/A |
@@ -881,7 +881,7 @@ Summarize:
 // FACT-SHEET CALCULATIONS (type: "fact-sheet")
 // Target: field on the fact sheet itself
 data.fieldName                    // Direct field access
-data.lifecycle.phaseName          // Lifecycle phase
+data.lifecycle.currentPhase       // Lifecycle phase ("plan", "phaseIn", "active", "phaseOut", "endOfLife")
 data.relationName                 // Relation array
 data.relationName[0].factsheet    // Related fact sheet
 data.relationName[0].factsheet.fieldName  // Field on related FS
@@ -889,7 +889,7 @@ data.relationName[0].factsheet.fieldName  // Field on related FS
 // RELATION CALCULATIONS (type: "relation")
 // Target: field on a relation
 data.factSheet.fieldName          // Related fact sheet's field
-data.factSheet.lifecycle.phaseName  // Related fact sheet's lifecycle
+data.factSheet.lifecycle.currentPhase  // Related fact sheet's lifecycle
 ```
 
 **Return Values:**

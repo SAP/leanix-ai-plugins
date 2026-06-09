@@ -65,13 +65,11 @@ data.factSheet.name
 ### Lifecycle Access
 
 ```javascript
-data.lifecycle.phaseName      // "plan", "phaseIn", "active", "phaseOut", "endOfLife"
-data.lifecycle.asString       // Date string representation
-data.lifecycle.phases         // Array of phase objects
-
-// Get specific phase
-const eolPhase = data.lifecycle?.phases?.find(p => p.phase === "endOfLife");
-const eolDate = eolPhase?.startDate;  // "YYYY-MM-DD" or null
+data.lifecycle.currentPhase   // "plan", "phaseIn", "active", "phaseOut", "endOfLife"
+// Per-phase start dates are keyed by phase name:
+data.lifecycle.active         // "YYYY-MM-DD" or undefined
+data.lifecycle.endOfLife      // "YYYY-MM-DD" or undefined
+data.lifecycle.upcomingPhase  // next phase name, or null
 ```
 
 ### Relation Access
@@ -90,7 +88,7 @@ const firstRelated = relations[0]?.factsheet;
 
 // Access field on related fact sheet
 const relatedName = relations[0]?.factsheet?.name;
-const relatedPhase = relations[0]?.factsheet?.lifecycle?.phaseName;
+const relatedPhase = relations[0]?.factsheet?.lifecycle?.currentPhase;
 
 // Access relation attribute
 const usageType = relations[0]?.usageType;
@@ -239,7 +237,7 @@ Standard phases (in order):
 | `name` | String | `data.name` |
 | `description` | String | `data.description` |
 | `type` | String | `data.type` |
-| `lifecycle` | Object | `data.lifecycle.phaseName` |
+| `lifecycle` | Object | `data.lifecycle.currentPhase` |
 | `createdAt` | DateTime | `data.createdAt` |
 | `updatedAt` | DateTime | `data.updatedAt` |
 
@@ -304,7 +302,7 @@ data.endDate               // Date
 const required = [
   data.description,
   data.businessCriticality,
-  data.lifecycle?.phaseName,
+  data.lifecycle?.currentPhase,
 ];
 
 const filled = required.filter(f => f != null && f !== "").length;
@@ -329,7 +327,7 @@ const coverage = [hasCapabilities, hasITComponents].filter(Boolean).length;
 ```javascript
 const relations = data.relApplicationToITComponent ?? [];
 const activeCount = relations.filter(
-  r => r.factsheet?.lifecycle?.phaseName === "active"
+  r => r.factsheet?.lifecycle?.currentPhase === "active"
 ).length;
 ```
 

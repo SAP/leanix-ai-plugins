@@ -45,7 +45,7 @@ export function main() {
 
   // Check for deprecated tech
   const hasDeprecated = itcs.some(
-    r => r.factsheet?.lifecycle?.phaseName === "endOfLife"
+    r => r.factsheet?.lifecycle?.currentPhase === "endOfLife"
   );
   if (hasDeprecated) {
     flags.push("deprecated_tech");

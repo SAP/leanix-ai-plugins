@@ -48,7 +48,7 @@ export function main() {
   let obsScore = 0;
   if (itcs.length > 0) {
     const phaseOutOrEol = itcs.filter(r => {
-      const phase = r.factsheet?.lifecycle?.phaseName;
+      const phase = r.factsheet?.lifecycle?.currentPhase;
       return phase === "phaseOut" || phase === "endOfLife";
     }).length;
     obsScore = (phaseOutOrEol / itcs.length) * 100;

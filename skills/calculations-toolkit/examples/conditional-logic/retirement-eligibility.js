@@ -15,7 +15,7 @@
  */
 
 export function main() {
-  const lifecycle = data.lifecycle?.phaseName;
+  const lifecycle = data.lifecycle?.currentPhase;
   const criticality = data.businessCriticality;
   const userGroups = data.relApplicationToUserGroup ?? [];
   const itcs = data.relApplicationToITComponent ?? [];

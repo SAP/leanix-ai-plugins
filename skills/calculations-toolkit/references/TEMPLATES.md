@@ -475,7 +475,7 @@ export function main() {
 
   const name = data[NAME_FIELD] ?? "Unknown";
   const version = data[VERSION_FIELD] ?? "";
-  const status = data.lifecycle?.phaseName ?? "";
+  const status = data.lifecycle?.currentPhase ?? "";
 
   const parts = [name];
 
@@ -573,7 +573,7 @@ export function main() {
   const LOW_CRITICALITY_VALUE = "administrativeService";
   // ↑↑↑ Discover via the SDL workflow (see header) ↑↑↑
 
-  const lifecycle = data.lifecycle?.phaseName;
+  const lifecycle = data.lifecycle?.currentPhase;
   const userCount = (data[USER_RELATION] ?? []).length;
   const criticality = data[CRITICALITY_FIELD];
 
@@ -725,7 +725,7 @@ export function main() {
   }).length;
 
   // Also check lifecycle
-  const hasLifecycle = data.lifecycle?.phaseName ? 1 : 0;
+  const hasLifecycle = data.lifecycle?.currentPhase ? 1 : 0;
 
   // Check relations (at least one each)
   const filledRelations = REQUIRED_RELATIONS.filter(r =>
@@ -851,7 +851,7 @@ const relations = data.relationName ?? [];
 const value = data.field ?? defaultValue;
 
 // Optional chaining for nested access
-const phase = data.lifecycle?.phaseName;
+const phase = data.lifecycle?.currentPhase;
 const relatedField = data.rel?.[0]?.factsheet?.field;
 ```
 

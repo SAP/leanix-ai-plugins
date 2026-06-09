@@ -89,7 +89,7 @@ Logic: {brief explanation of calculation}
 ```
 Calculates: Number of linked IT Components in active lifecycle
 
-Sources: relApplicationToITComponent, lifecycle.phaseName on related ITCs
+Sources: relApplicationToITComponent, lifecycle.currentPhase on related ITCs
 
 Logic: Counts relations where related ITC lifecycle is 'active'
 ```

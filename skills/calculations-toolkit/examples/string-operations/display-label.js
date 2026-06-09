@@ -11,7 +11,7 @@
 export function main() {
   const name = data.name ?? "Unknown";
   const version = data.version;
-  const phase = data.lifecycle?.phaseName;
+  const phase = data.lifecycle?.currentPhase;
 
   const parts = [name];
 

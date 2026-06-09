@@ -18,7 +18,7 @@ export function main() {
     { path: "businessCriticality", weight: 2 },
     { path: "technicalFit", weight: 1 },
     { path: "functionalFit", weight: 1 },
-    { path: "lifecycle.phaseName", weight: 2 },
+    { path: "lifecycle.currentPhase", weight: 2 },
   ];
 
   let totalWeight = 0;
@@ -27,7 +27,7 @@ export function main() {
   for (const field of REQUIRED_FIELDS) {
     totalWeight += field.weight;
 
-    // Navigate path (supports nested like "lifecycle.phaseName")
+    // Navigate path (supports nested like "lifecycle.currentPhase")
     const parts = field.path.split(".");
     let value = data;
     for (const part of parts) {

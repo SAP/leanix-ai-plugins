@@ -103,7 +103,7 @@ Note: Custom fact sheet types use their configured type name.
 data.name                        // Fact sheet name
 data.description                 // Description
 data.businessCriticality         // Custom field
-data.lifecycle.phaseName         // Current phase
+data.lifecycle.currentPhase      // Current phase
 ```
 
 ### Relation Calculations (`type: "relation"`)
@@ -111,7 +111,7 @@ data.lifecycle.phaseName         // Current phase
 ```javascript
 data.factSheet.name              // Related fact sheet's name
 data.factSheet.description       // Related fact sheet's description
-data.factSheet.lifecycle.phaseName  // Related fact sheet's lifecycle
+data.factSheet.lifecycle.currentPhase  // Related fact sheet's lifecycle
 ```
 
 ### Relations in Fact Sheet Calculations
@@ -130,7 +130,7 @@ relations[0].factsheet
 
 // Access field on related fact sheet
 relations[0].factsheet.name
-relations[0].factsheet.lifecycle.phaseName
+relations[0].factsheet.lifecycle.currentPhase
 
 // Access relation attribute
 relations[0].usageType

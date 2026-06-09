@@ -9,7 +9,7 @@
  */
 
 export function main() {
-  const phase = data.lifecycle?.phaseName;
+  const phase = data.lifecycle?.currentPhase;
 
   if (!phase) {
     return null;

@@ -51,7 +51,7 @@ export function main() {
   else if (descLength > 0) descScore = 25;
 
   // Factor 4: Lifecycle defined (0-100)
-  const hasLifecycle = data.lifecycle?.phaseName != null;
+  const hasLifecycle = data.lifecycle?.currentPhase != null;
   const lifecycleScore = hasLifecycle ? 100 : 0;
 
   // Weighted total

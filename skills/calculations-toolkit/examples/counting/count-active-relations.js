@@ -17,7 +17,7 @@ export function main() {
   const relations = data[RELATION_NAME] ?? [];
 
   const activeCount = relations.filter(
-    r => r.factsheet?.lifecycle?.phaseName === TARGET_PHASE
+    r => r.factsheet?.lifecycle?.currentPhase === TARGET_PHASE
   ).length;
 
   return activeCount;
