@@ -112,7 +112,7 @@ Load these files **only when needed** for specific workflow steps:
 | `references/API-REFERENCE.md` | Creating calculations (Step 6) | API endpoints, CalculationDto |
 | `references/TEMPLATES.md` | Generating code (Step 5) | Ready-to-use calculation templates |
 | `references/LEANIX-MODEL.md` | Understanding field types | Fact sheet types, relations, field access |
-| `references/LEARNINGS.md` | Debugging errors | API error patterns, fixes |
+| `references/LEARNINGS.md` | Debugging errors **or** activating a calculation | API error patterns, activation gotchas, known fixes |
 | `references/NAMING-CONVENTION.md` | Standardizing names | Naming convention |
 | `references/ANALYSIS-RULES.md` | Analyzing calculations | Code analysis rules, workspace checks |
 | `assets/MCP-SETUP.md` | Setting up MCP connection | MCP server configuration |
@@ -349,6 +349,7 @@ For **relation** calculations, present:
 | Target field exists | Look up in data model | `affected_field_key not found` |
 | Target field is writable | Not a base field | `Target attribute is read-only` |
 | Target field type known | From data model | Wrong return type |
+| **If target is Single/Multi Select: fetch enum values** | `get_graphql_type_definitions(["{EnumTypeName}"])` — enum type name is the field's GraphQL type from SDL | Returning an invalid enum string silently clears the field — no error thrown |
 | Source fields exist | Look up in data model | `configurationErrorCount` errors |
 | Relations exist | Look up in data model | `undefined` at runtime |
 
@@ -635,6 +636,8 @@ Parameters:
 → **For error patterns:** Load `references/LEARNINGS.md`
 
 ### Step 7: Enable Calculation
+
+> **Rule:** Source fields (data.*) are extracted from the calculation code **only when it is enabled**, not when saved as inactive.
 
 Ask the user using `AskUserQuestion`:
 
