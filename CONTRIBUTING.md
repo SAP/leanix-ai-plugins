@@ -45,7 +45,9 @@ The spec covers all `SKILL.md` frontmatter fields and requirements; the best pra
 
 ## How Plugins Bundle Skills
 
-`marketplace.json` declares plugins and maps them to skills:
+This marketplace ships **one plugin (`sap-leanix`)** that bundles every skill in this repo. New skills are added to the same plugin's `skills` array — we do not create a new plugin per skill.
+
+`marketplace.json` looks like this:
 
 ```json
 {
@@ -57,17 +59,20 @@ The spec covers all `SKILL.md` frontmatter fields and requirements; the best pra
   },
   "plugins": [
     {
-      "name": "plugin-name",
-      "description": "What this plugin does.",
+      "name": "sap-leanix",
+      "description": "Agent Skills for SAP LeanIX...",
       "source": "./",
       "strict": false,
-      "skills": ["./skills/skill-name"]
+      "skills": [
+        "./skills/automations-toolkit"
+        // additional skills go here
+      ]
     }
   ]
 }
 ```
 
-Each plugin entry in `plugins[]` groups related skills under a single installable unit.
+Inside Claude Code, each skill is invoked as `sap-leanix:<skill-name>`.
 
 ## Adding a New Skill
 
@@ -81,11 +86,30 @@ Each plugin entry in `plugins[]` groups related skills under a single installabl
 
 3. **Add examples** that demonstrate realistic usage. Organize into subdirectories by category if there are more than a handful.
 
-4. **Register in `marketplace.json`** — either add to an existing plugin's `skills` array or create a new plugin entry.
+4. **Register in `marketplace.json`** — append `"./skills/<skill-name>"` to the `sap-leanix` plugin's `skills` array. Do not create a separate plugin entry.
 
-5. **Update README.md** if the skill requires additional setup (MCP servers, credentials, etc.).
+5. **⚠️ Extend the LeanIX MCP toolsets in [`.mcp.json`](.mcp.json) — REQUIRED if your skill calls a toolset not already in the URL.** If you skip this, plugin users will install the skill, invoke it, and silently get errors because the tools they need are not exposed by the MCP server.
 
-6. **Validate** — the plugin is successfully installed and tested with Claude Code
+   **What to do:**
+   - Open the plugin-root [`.mcp.json`](.mcp.json) and look at the `?toolsets=` query parameter on the `leanix` server URL. Today it lists `inventory,automations`.
+   - Identify which LeanIX MCP toolsets your skill calls (see the authoritative list in [`MCP-SETUP.md`](MCP-SETUP.md) §Toolsets, or the [LeanIX MCP server source](https://github.com/leanix/mcp-server/blob/main/mcp_server/core/types/toolset_types.py)).
+   - Append any missing toolsets to the URL. Example: a discovery-inbox skill changes `?toolsets=inventory,automations` → `?toolsets=inventory,automations,discovery_inbox`.
+
+   **Why this is required, not optional:**
+   - The LeanIX MCP server returns its 8 *default* toolsets when no `?toolsets=` param is set (e.g. `inventory`, `roadmap_planning`, `architecture_decisions`, …). The 7 *optional* toolsets (`automations`, `integrations`, `rba_rsa`, `discovery_inbox`, `structural_search`, `calculations`, `catalogs`) are hidden by default and must be opted in.
+   - When ANY `?toolsets=` is specified, the server returns ONLY the listed toolsets — defaults are no longer auto-included. So once we set the param, we must list everything we want.
+   - The server enforces a **max of 10 toolsets per request**. There are 15 total, so we cannot bundle everything up front — we expand as skills are added.
+   - This applies whether the toolset is a default or optional one — once the URL declares any toolset list, the listed set is what users get.
+
+6. **Update README.md** — add a row to the Available Skills table; document any setup the skill requires beyond the bundled LeanIX MCP server (extra credentials, external services, etc.).
+
+7. **Validate** — `claude plugin validate .` passes, and the plugin successfully installs and runs the skill in Claude Code.
+
+## Releases and Versioning
+
+This marketplace intentionally **does not pin a `version`** on plugin entries in [`marketplace.json`](.claude-plugin/marketplace.json). With no pinned version, Claude Code falls back to the git commit SHA, which means **every commit to `main` is treated as a new version** and reaches users on the next `/plugin marketplace update` (or auto-update). No manual bumping required.
+
+If you ever add a `version` field (either to a plugin entry in `marketplace.json` or to a `plugin.json`), you **must bump it on every release** — otherwise users keep their cached copy and never see your changes. See the [version resolution rules](https://code.claude.com/docs/en/plugin-marketplaces#version-resolution-and-release-channels). The top-level `metadata.version` is the marketplace manifest version (informational) and is separate from per-plugin versions.
 
 ## Branching and Pull Requests
 

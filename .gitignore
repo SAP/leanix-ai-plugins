@@ -1,1 +1,14 @@
 .idea
+# Local working notes
+marketplace-distribution.md
+.playwright-mcp/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Node
+node_modules/

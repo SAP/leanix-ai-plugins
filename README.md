@@ -10,20 +10,24 @@ The skills in this repository are designed to work with the [LeanIX MCP Server](
 
 ## Available Skills
 
+All skills below ship inside the `sap-leanix` plugin. Installing the plugin makes every listed skill available; new skills are added by appending to the plugin's `skills` array — no separate installs.
+
 | Skill | Description |
 |-------|-------------|
 | [automations-toolkit](skills/automations-toolkit/) | Build, debug, and deploy LeanIX automation scripts |
 
 ## Requirements and Setup
 
-This repository is also a [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces#create-and-distribute-a-plugin-marketplace). A **plugin** is a collection of one or more skills. Install via Claude Code:
+This repository is also a [Claude Code plugin marketplace](https://code.claude.com/docs/en/plugin-marketplaces#create-and-distribute-a-plugin-marketplace). A **plugin** is a collection of one or more skills; this marketplace ships the `sap-leanix` plugin that bundles every LeanIX skill in this repo, along with the LeanIX MCP server config. Install via Claude Code:
 
 ```shell
 /plugin marketplace add SAP/leanix-ai-plugins
-/plugin install automations-toolkit@leanix-ai-plugins
+/plugin install sap-leanix@leanix-ai-plugins
 ```
 
-For other agents (Cursor, Gemini CLI, Codex, etc.), point the agent at the skill directory directly.
+Inside Claude Code, each skill is invoked as `sap-leanix:<skill-name>` (for example, `sap-leanix:automations-toolkit`). The LeanIX MCP server connects automatically on first use — Claude Code triggers the OAuth sign-in flow.
+
+For other agents (Cursor, Gemini CLI, Codex, etc.) or for advanced configurations (technical user / API token authentication), see [`MCP-SETUP.md`](MCP-SETUP.md) for the full LeanIX MCP server setup walkthrough.
 
 Skills follow the [Agent Skills](https://agentskills.io) open standard. Consult your agent's documentation for how to load them:
 
@@ -39,7 +43,8 @@ Skills follow the [Agent Skills](https://agentskills.io) open standard. Consult 
 This project is open to feature requests, bug reports, and feedback via [GitHub issues](https://github.com/SAP/leanix-ai-plugins/issues). See our [Contribution Guidelines](CONTRIBUTING.md) for ways to participate.
 
 ## Security / Disclosure
-If you find any bug that may be a security problem, please follow our instructions at [in our security policy](https://github.com/SAP/leanix-ai-plugins/security/policy) on how to report it. Please do not create GitHub issues for security-related doubts or problems.
+
+If you find any bug that may be a security problem, please follow our instructions in our [security policy](https://github.com/SAP/leanix-ai-plugins/security/policy) on how to report it. Please do not create GitHub issues for security-related doubts or problems.
 
 ## Code of Conduct
 

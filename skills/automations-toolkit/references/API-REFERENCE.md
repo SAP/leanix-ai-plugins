@@ -18,8 +18,49 @@
 > - `mcp__leanix__get_automation_schema()` — GET /api-json schema reference
 > - `mcp__leanix__search_users(email=...)` — User lookup
 
+---
+
+## Discovering Service Specs
+
+When working with any LeanIX service beyond `automations` (e.g., To-Do, Webhooks, MTM), fetch the OpenAPI spec directly instead of guessing endpoints or web-searching the docs site.
+
+### URL Pattern
+
+```
+https://{INSTANCE}.leanix.net/services/{service-name}/v1/openapi.json
+```
+
+The `automations` service is the only known exception — its spec is at `/api-json` instead of `/openapi.json`. Most others (`mtm`, `todo`, `webhooks`) are served publicly with no auth required, so a plain `WebFetch` works.
+
+### Verified Service Inventory
+
+Last sweep: 2026-05-21 on `demo-us.leanix.net`.
+
+| Service | Spec URL | Public? | Purpose |
+|---|---|---|---|
+| `mtm` | `/services/mtm/v1/openapi.json` | yes (200) | Multi-tenant: accounts, workspaces, users, IDPs |
+| `todo` | `/services/todo/v1/openapi.json` | yes (200) | Action items, approvals, query by externalId/factSheet |
+| `webhooks` | `/services/webhooks/v1/openapi.json` | yes (200) | Event subscriptions, deliveries |
+| `automations` | `/services/automations/v1/api-json` | auth-gated (401) | Trigger/action/template DTOs (also covered by `mcp__leanix__get_automation_schema`) |
+| `mcp-server` | `/services/mcp-server/v1/openapi.json` | auth-gated (401) | — |
+| `sso` | `/services/sso/v1/openapi.json` | auth-gated (401) | — |
+| `pathfinder` | n/a | n/a | GraphQL-only — use schema introspection or `LEANIX-MODEL.md` query patterns |
+
+> Note: `todos` (plural) and `integration-api` are **not** valid services — both appeared in stale internal docs. Canonical name is `todo` (singular). `integration-api` returned 404 on every instance checked.
+
+### Procedure
+
+1. **Need an endpoint shape?** WebFetch the spec first.
+2. **Need a request/response schema?** Read it from the OpenAPI components, don't infer from examples.
+3. **Authoring a script that calls a service?** Confirm the URL exists in this table. If not, sweep the candidate path with WebFetch before pasting any URL into a script.
+
+This pattern was added after a session burned multiple rounds web-searching for the To-Do API GET shape when the spec was a single WebFetch away.
+
+---
+
 ## Table of Contents
 
+- [Discovering Service Specs](#discovering-service-specs)
 - [API Endpoints](#api-endpoints)
 - [Extracting Credentials from MCP Configuration](#extracting-credentials-from-mcp-configuration)
 - [Authentication & Permissions](#authentication--permissions)
@@ -33,6 +74,7 @@
 - [Action Types (actionType enum)](#action-types-actiontype-enum)
 - [Complete Deployment Example](#complete-deployment-example)
 - [Error Handling](#error-handling)
+- [Service-Layer Behaviors](#service-layer-behaviors)
 - [Fact Sheet Types](#fact-sheet-types)
 - [Relation Type Names](#relation-type-names)
 
@@ -1062,8 +1104,10 @@ const templateResponse = await fetch(
 
 const template = await templateResponse.json();
 console.log("Automation ID:", template.id);
-console.log("Automation URL:", `https://INSTANCE.leanix.net/WORKSPACE/automations/${template.id}`);
+console.log("Automation URL:", `https://INSTANCE.leanix.net/WORKSPACE/admin/automations/template/${template.id}`);
 ```
+
+> **Automation edit URL format**: `https://{INSTANCE}.leanix.net/{WORKSPACE}/admin/automations/template/{TEMPLATE_ID}`. The `/admin/` path segment and `/template/` are required. `{WORKSPACE}` is the workspace name from the JWT payload at `principal.permission.workspaceName`.
 
 ### Step 3: Enable Automation (After Testing)
 
@@ -1157,6 +1201,187 @@ await fetch(
   ]
 }
 ```
+
+### Recovery Patterns
+
+#### Template Literals Reject When Creating Scripts via API
+
+`POST /scripts` with a `code` payload that uses template literals (backticks) fails with HTTP 422 *"Invalid JavaScript code provided"*. Template literals work fine when scripts are pasted into the LeanIX UI, but not over the API.
+
+```javascript
+// REJECTED via API
+const query = `query ($id: ID!) { factSheet(id: $id) { id rev } }`;
+
+// ACCEPTED via API
+const query = "query ($id: ID!) { factSheet(id: $id) { id rev } }";
+```
+
+When generating script code for `mcp__leanix__create_automation_script`, use plain string concatenation throughout.
+
+#### REVISION_CLASH Retry on Sequential Mutations
+
+When a script performs multiple mutations on the same fact sheet (or concurrent automations / system updates change a fact sheet between mutations), GraphQL returns:
+
+```
+extensions.errorType === "REVISION_CLASH"
+Message: "DB revision of Fact Sheet has changed: X instead of given Y"
+```
+
+Recovery: re-fetch the revision before each mutation, retry the mutation up to 3 times when the error type is `REVISION_CLASH`, and only throw if all retries fail.
+
+```javascript
+async function getCurrentRev(fsId, token) {
+  const res = await fetch(GRAPHQL_URL, {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: "query ($id: ID!) { factSheet(id: $id) { rev } }",
+      variables: { id: fsId }
+    })
+  });
+  return (await res.json())?.data?.factSheet?.rev;
+}
+
+for (const item of items) {
+  let retries = 3;
+  while (retries > 0) {
+    const currentRev = await getCurrentRev(fsId, token);
+    const mutJson = await doMutation(fsId, currentRev, item);
+    if (mutJson?.errors) {
+      const isRevClash = mutJson.errors.some(
+        e => e.extensions?.errorType === "REVISION_CLASH"
+      );
+      if (isRevClash && retries > 1) { retries--; continue; }
+      throw new Error("Mutation failed: " + JSON.stringify(mutJson.errors));
+    }
+    break;
+  }
+}
+```
+
+### Debugging Methodology
+
+**Comparison-first.** When an automation isn't behaving as expected:
+
+1. Fetch all templates with `mcp__leanix__list_automations()` and cache the result for the session.
+2. Find a working automation with similar configuration (same fact sheet type, similar trigger).
+3. Diff broken vs working — focus on `ownerId`, `active`, trigger config, conditions, actions.
+4. Only investigate UUIDs / JWT payloads if the comparison doesn't reveal the issue.
+
+Most automation failures stem from configuration differences (wrong `ownerId`, inactive state, misconfigured trigger). Comparing against a working automation surfaces these in seconds.
+
+### Built-in Action Limitations
+
+These limitations affect automation design but are not visible in the OpenAPI schema.
+
+#### SEND_EMAIL_V2: No Dynamic Recipients
+
+Recipients are fixed at automation definition time. Available recipient types: `FACT_SHEET_SUBSCRIPTION`, `FACT_SHEET_CREATOR`, fixed `userEmails`. There is no mechanism to pass a list computed by a script.
+
+**Workaround**: Use the To-Do API. LeanIX automatically emails the assignee when a To-Do is created.
+
+#### SEND_USER_WEBHOOK: No Custom Payload
+
+The action accepts only a `tag` string (2–256 chars) and emits a fixed payload structure. There is no way to pass arbitrary JSON.
+
+**Workaround**: Call `fetch()` directly from the script with a custom payload.
+
+#### Run Script `data` Object Constraints
+
+- **`data.factSheet.subscriptions` is always empty.** The runtime does not populate this array. To read subscribers, query GraphQL: `factSheet(id: $id) { subscriptions { edges { node { id type user { id email displayName } roles { id name } } } } }`.
+- **`data.trigger` is not available.** Run scripts only receive `data.factSheet`. Scripts cannot determine *what changed* — design logic around current state. If you need to filter on a specific change, use automation conditions instead.
+
+### Workspace Data Queries
+
+#### Fetch All Tags
+
+```graphql
+{
+  allTags {
+    edges {
+      node {
+        id
+        name
+        tagGroup { id name }
+      }
+    }
+  }
+}
+```
+
+Use when a script needs to reference tag IDs or when the user needs to select a trigger tag.
+
+---
+
+## Service-Layer Behaviors
+
+These rules are enforced by the Automations service when accepting POST/PUT/DELETE requests against `/scripts` and `/templates`. They are not visible in the OpenAPI schema and surface as 4xx responses if violated.
+
+### DTO size limits
+
+| Object | Field | Min | Max |
+|---|---|---|---|
+| Script | `name` | 1 | 255 |
+| Template | `name` | 1 | 256 |
+| Template | `factSheetType` | 1 | 256 |
+| Template | `description` | 0 | 2048 |
+
+Requests exceeding these limits are rejected with **HTTP 400** and a validation error.
+
+### Secret auto-detection
+
+The service injects `{ secrets: [{ key: "default_automations_secret" }] }` into the MCE execution context **only if the script body contains the literal substring `"default_automations_secret"`**. It is a plain string-match on the source code.
+
+```javascript
+// WORKS — literal substring present, secret injected
+const token = context?.secrets?.["default_automations_secret"]?.value?.bearerToken;
+
+// FAILS — string is built dynamically, no substring match, no secret injected
+const k = "default_" + "automations_secret";
+const token = context?.secrets?.[k]?.value?.bearerToken;  // context.secrets is empty
+```
+
+Always reference the secret key as a literal string in the source. The same applies to indirect references via variables, helper functions, or computed property names — if the literal substring is not present, no secret is injected.
+
+### Hardcoded language and capability
+
+Scripts created via `POST /scripts` are **always** stored as `language: "JAVASCRIPT"` and `capability: "AUTOMATIONS"`. Any other value in the request body is silently overridden.
+
+### Trigger + condition rules
+
+- **Per-template uniqueness:** at most 1 × `IGNORE_TECHNICAL_USERS`, 1 × `CATEGORY`, and 1 × `WITH_TAGS` condition. Duplicates are rejected.
+- **`LIFECYCLE_PHASE_CHANGE` (job-type) trigger** combined with an `IGNORE_TECHNICAL_USERS` condition is rejected: *"Technical user condition is not allowed when the trigger is of JOB type."* Job-type triggers run on a schedule; the technical-user filter is meaningless in that context.
+- Toggling `active` on an active template re-syncs the trigger registration; toggling on an inactive template does not. Practical consequence: if a trigger looks misregistered, a PUT round-trip with the active value flipped to true (and back) re-syncs it.
+
+### Action graph rules
+
+- **Exactly one first action.** The action with `startsAfter: null` is the entry point. Templates with multiple `startsAfter: null` actions, or zero, are rejected.
+- All other actions must chain via `startsAfter` referencing another action's `id` in the same template.
+- **Inline `script` field is auto-stripped.** If you POST an action with both `script: "..."` (full source) and `scriptId`, the service drops the `script` field and keeps the `scriptId`. Always create scripts separately via `POST /scripts` and reference by id.
+
+### Script DELETE conflicts
+
+`DELETE /scripts/{id}` returns **HTTP 409 Conflict** when the script is referenced by **more than one** template, unless `?force=true` is passed.
+
+```json
+{
+  "error": "Conflict",
+  "usedByTemplates": [
+    { "id": "template-uuid-1", "name": "Tag App on Creation" },
+    { "id": "template-uuid-2", "name": "Tag App on Update" }
+  ]
+}
+```
+
+Single-reference deletes succeed normally. With `force=true`, all referencing templates have the script removed (and may break if no replacement is provided in the same request).
+
+### MCE call gateway timeout
+
+The service forwards script execution requests to MCE with a **15,000 ms** gateway timeout. Long-running scripts that breach this fail at the gateway with `GATEWAY_TIMEOUT` even before MCE's own `EXECUTION_TIMEOUT` fires. Keep scripts short; paginate large work across multiple triggers if needed.
+
+### Compensation rollback on creation failure
+
+If a multi-step deploy creates one or more scripts and then fails to create the template, the service deletes the just-created scripts (best-effort, with retries). A partially-failed deploy leaves no orphaned scripts to clean up manually.
 
 ---
 

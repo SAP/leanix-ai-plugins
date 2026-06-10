@@ -41,8 +41,14 @@ Comprehensive help for LeanIX Run Script automations: create, debug, design, opt
 
 | Pattern | Why It Fails |
 |---------|--------------|
-| `console.log()` anywhere | Silent script failure - no output, just stops |
-| `import` statements | Not supported - only `fetch`, `data`, `context` available |
+| `function main(data)` or `function main(context)` | `main()` takes zero parameters. `data` and `context` are injected globals at runtime. |
+| `function main(){}; export { main }` (re-export) or `export default function main()` | The save-time validator requires direct export: `export function main()`, `export async function main()`, or `export const main = ...`. |
+| `async function main()` with no `await` inside | `require-await` lint rule blocks save. Drop `async` if no `await`. |
+| Top-level `await` outside `main()` | Rejected by TS1308. `await` only works inside the `async main()` body. |
+| `import` statements | Runner is `--frozen --no-remote`; rejected by TS2307. Only `fetch`, `data`, `context`, and standard JS built-ins are available. |
+| TS-style type annotations in `.js` (e.g. `function f(x: string)`) | Rejected by TS8010. |
+| Calling `Deno`, `setTimeout`, `setInterval`, `eval`, `Function`, `WebAssembly` | These globals are deleted at runtime. `ReferenceError` at execute time. |
+| Relying on `console.log` for visible output | Captured to `stdout` (returned in execution result), but NOT shown prominently in the Automations UI. For visible failure, `throw new Error(...)`. |
 | `relApplicationToITComponent` without wrapper | Must use `... on Application { relApplicationToITComponent { } }` |
 | Mutations without `currentRev` tracking | Revision conflict errors |
 | No idempotency check | Infinite loop when automation re-triggers itself |
@@ -53,6 +59,12 @@ Comprehensive help for LeanIX Run Script automations: create, debug, design, opt
 | Setting `creatorId` on template update | Immutable; silently ignored (API returns 200 but no change) |
 | Investigating UUIDs before comparing with working automations | Slow; comparison-first debugging is faster |
 | Re-fetching templates without caching | Redundant MCP calls; cache `list_automations()` result in context for the session |
+| Building the secret key dynamically (`"default_" + "auto..."`) | Service auto-injection is a literal substring match on `"default_automations_secret"`. Dynamic construction means no match — `context.secrets` ends up empty. |
+| `LIFECYCLE_PHASE_CHANGE` trigger combined with `IGNORE_TECHNICAL_USERS` condition | Service rejects: technical-user condition is not allowed on job-type triggers. |
+| Multiple actions with `startsAfter: null` (or zero such actions) | Exactly one first action is allowed per template. All others must chain via `startsAfter`. |
+| Inline `script: "..."` field on an action payload | Service strips it. Always create scripts separately via `POST /scripts` and reference by `scriptId`. |
+| Using `console.warn` / `console.info` / `console.debug` for diagnostics | Not captured by the runner; output is silently dropped. Only `console.log` and `console.error` are captured (to `stdout` / `stderr`). |
+| Mutating `data` or `context` in place | The runner process is reused across executions and globals are restored between runs. Treat both as read-only. |
 
 ---
 
@@ -98,11 +110,9 @@ Load these files **only when needed** for specific workflow steps:
 | [`references/API-REFERENCE.md`](references/API-REFERENCE.md) | Deploying automations (Step 9) | API endpoints, DTOs, action types |
 | [`references/TEMPLATES.md`](references/TEMPLATES.md) | Generating scripts (Step 7) | Ready-to-use script templates |
 | [`references/LEANIX-MODEL.md`](references/LEANIX-MODEL.md) | Understanding capabilities | Fact sheet types, relations, triggers |
-| [`references/LEARNINGS.md`](references/LEARNINGS.md) | Debugging deployment errors | API error patterns, fixes |
 | [`references/NAMING-CONVENTION.md`](references/NAMING-CONVENTION.md) | Analyzing/standardizing automations | Naming convention, categories |
 | [`references/WORKSPACE-ANALYSIS.md`](references/WORKSPACE-ANALYSIS.md) | Analyzing workspace automations | Full audit workflow, report format |
 | [`references/MANAGE-AUTOMATIONS.md`](references/MANAGE-AUTOMATIONS.md) | Managing existing automations | Transfer, enable/disable, troubleshoot, bulk update |
-| [`assets/MCP-SETUP.md`](assets/MCP-SETUP.md) | Setting up MCP connection | MCP server configuration |
 
 ---
 
@@ -176,7 +186,7 @@ Then **stop the workflow** — do not continue without automation tools, as depl
 > claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"
 > ```
 >
-> See [MCP Setup](assets/MCP-SETUP.md) for full instructions.
+> See [MCP Setup](../../MCP-SETUP.md) for full instructions.
 
 ---
 
@@ -306,12 +316,14 @@ Search `examples/INDEX.md` for patterns:
 ### Step 7: Generate Script
 
 **Critical Rules Checklist:**
-- [ ] NO `console.log()` - causes silent failure
-- [ ] NO imports - only `fetch`, `data`, `context` available
-- [ ] Use `export function main()` (add `async` if using fetch)
+- [ ] `main` is exported directly (not via re-export or default export)
+- [ ] `main` takes zero parameters (`data` and `context` are injected globals)
+- [ ] If `main` is `async`, it contains at least one `await`
+- [ ] No `import` statements — only `fetch`, `data`, `context`, JS built-ins
 - [ ] Wrap relations in type fragments: `... on Application { relApplicationTo... }`
 - [ ] Track `currentRev` after each mutation
 - [ ] Include idempotency checks
+- [ ] Use `throw new Error(...)` for visible failures (not `console.log` — captured to stdout, not surfaced in UI)
 
 **Return Object Limitations:** Can update `description`, `name`, `tags`, `lifecycle`, custom fields. Cannot update relations, subscriptions, or other fact sheets (use GraphQL).
 
@@ -360,7 +372,7 @@ See [API Reference — Ownership](references/API-REFERENCE.md#ownership-manageme
 
 **Success:** Report the automation name and ID. The user can find it in LeanIX Admin → Automations.
 
-See [API Reference](references/API-REFERENCE.md) for deployment details and [Learnings](references/LEARNINGS.md) for error patterns.
+See [API Reference](references/API-REFERENCE.md) for deployment details and error patterns.
 
 ---
 
@@ -406,15 +418,16 @@ Request: script code, trigger config, observed behavior, error messages.
 
 | Check | Issue | Fix |
 |-------|-------|-----|
-| `console.log` | Any console statement | Remove - causes silent failure |
-| Export syntax | Missing `export` | Use `export function main()` |
-| Async | Has `await` but no `async` | Add `async` |
+| Export form | `main` not exported, re-export, default export | Use `export function main()` or `export async function main()` |
+| Parameters on `main` | `function main(data)` | Drop the parameter — injected as globals |
+| `async` without `await` | `async main` with no `await` inside | Drop `async`, or add an `await` |
+| Imports | Any `import` statement | Remove — runner is `--frozen --no-remote` |
 | Inline fragments | Relations without type wrapper | Wrap in `... on Application { }` |
 | Revision tracking | No `currentRev` updates | Track after each mutation |
 | Idempotency | No early return | Add `if (newValue === currentValue) return {}` |
 | Error handling | No `json?.errors` check | Add error checks |
 | Bearer token | Wrong path | Use `context?.secrets?.["default_automations_secret"]?.value?.bearerToken` |
-| Edge/node access | Direct access | Use `(rel?.edges || []).map(e => e?.node).filter(Boolean)` |
+| Visible failure | Relying on `console.log` | `console.log` is captured to stdout, not shown in UI. Use `throw new Error(...)` |
 
 ### Step 3: Provide Diagnosis
 
@@ -457,8 +470,8 @@ See [LeanIX Model](references/LEANIX-MODEL.md) for detailed capabilities.
 **Key conversions:**
 | Python | LeanIX Run Script |
 |--------|-------------------|
-| `import requests/json/logging` | Remove |
-| `logging.info/error` | Remove - causes failure |
+| `import requests/json/logging` | Remove — no `import` allowed |
+| `logging.info/error` | Remove or replace with `throw new Error(...)` for visible failures (`console.log` is captured to stdout, not surfaced in UI) |
 | `os.environ["LEANIX_API_TOKEN"]` | `context?.secrets?.["default_automations_secret"]?.value?.bearerToken` |
 | `requests.post()` | `await fetch()` |
 

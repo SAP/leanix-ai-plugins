@@ -9,8 +9,16 @@
   },
   "plugins": [
     {
-      "name": "automations-toolkit",
-      "description": "Build, debug, and deploy LeanIX automation scripts. Covers trigger configuration, script templates, API deployment via MCP, error patterns, and multi-automation strategies.",
+      "name": "sap-leanix",
+      "description": "Agent Skills that extend AI coding agents with SAP LeanIX workflows and domain knowledge via the LeanIX MCP server.",
+      "author": {
+        "name": "SAP LeanIX"
+      },
+      "homepage": "https://github.com/SAP/leanix-ai-plugins",
+      "repository": "https://github.com/SAP/leanix-ai-plugins",
+      "license": "Apache-2.0",
+      "keywords": ["sap", "leanix", "sap leanix", "enterprise-architecture", "enterprise architecture"],
+      "category": "enterprise",
       "source": "./",
       "strict": false,
       "skills": ["./skills/automations-toolkit"]

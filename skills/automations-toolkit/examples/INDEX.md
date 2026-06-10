@@ -1,6 +1,6 @@
 # Examples Index
 
-Centralized catalog of all 29 automation scripts in this repository.
+Centralized catalog of all 30 automation scripts in this repository.
 
 ---
 
@@ -19,7 +19,7 @@ Centralized catalog of all 29 automation scripts in this repository.
 | [lifecycle-management](#lifecycle-management) | 1 | React to lifecycle phase changes |
 | [initiative-management](#initiative-management) | 1 | Sync fields based on related initiative statuses |
 | [data-processing](#data-processing) | 1 | Conditional field updates and defaults |
-| [lifecycle-actions](#lifecycle-actions) | 1 | Archive or status change automations |
+| [lifecycle-actions](#lifecycle-actions) | 2 | Archive, status change, and lifecycle-driven To-Do automations |
 | [api-calls](#api-calls) | 1 | External API integration patterns |
 | [notifications](#notifications) | 1 | Dynamic email notifications via To-Do API |
 | [reports](#reports) | 1 | ToDo creation and reporting |
@@ -159,6 +159,7 @@ Scripts that change fact sheet status (archive, activate, etc.).
 | Script | Complexity | Trigger | Description |
 |--------|------------|---------|-------------|
 | [archive-on-tag.js](lifecycle-actions/archive-on-tag.js) | Intermediate | Tag Added | Archives fact sheet with comment when specific tag is added. Demonstrates status mutation with idempotency check. |
+| [llm-eoss-todo-on-application.js](lifecycle-actions/llm-eoss-todo-on-application.js) | Advanced | Lifecycle phase reached (e.g., endOfLife on ITComponent) | Generic pattern: idempotent To-Do on a *related* fact sheet for subscribers with a given role. Default config: LLM End-of-Support notification on linked Applications. Demonstrates GraphQL + To-Do REST API + externalId idempotency. See [README](lifecycle-actions/llm-eoss-todo-on-application.README.md). |
 
 ---
 
@@ -237,7 +238,7 @@ Moderate complexity. GraphQL queries, reconciliation basics.
 9. [archive-on-tag.js](lifecycle-actions/archive-on-tag.js) - Status mutation
 10. [it-app-owner-guard.js](subscription-management/it-app-owner-guard.js) - Single subscription guard
 
-### Advanced (16 scripts)
+### Advanced (17 scripts)
 
 Complex logic. Multi-step mutations, full reconciliation, revision tracking.
 
@@ -257,6 +258,7 @@ Complex logic. Multi-step mutations, full reconciliation, revision tracking.
 14. [risk-currency-app-trigger.js](tagging/risk-currency-rollup/risk-currency-app-trigger.js) - Risk Currency rollup (return object)
 15. [risk-currency-itc-trigger.js](tagging/risk-currency-rollup/risk-currency-itc-trigger.js) - Risk Currency rollup (mutation)
 16. [archive-initiative-after-eol.js](archive/archive-initiative-after-eol.js) - Archive after EOL
+17. [llm-eoss-todo-on-application.js](lifecycle-actions/llm-eoss-todo-on-application.js) - To-Do on related FS for role subscribers (GraphQL + REST + idempotency)
 
 ---
 
@@ -284,5 +286,6 @@ Complex logic. Multi-step mutations, full reconciliation, revision tracking.
 | Archive a fact sheet after EOL | [archive-initiative-after-eol.js](archive/archive-initiative-after-eol.js) |
 | Create ToDo items | [lifecycle-report.js](reports/lifecycle-report.js) |
 | Send dynamic email notifications | [dynamic-todo-notification.js](notifications/dynamic-todo-notification.js) |
+| Notify subscribers on a *related* fact sheet | [llm-eoss-todo-on-application.js](lifecycle-actions/llm-eoss-todo-on-application.js) |
 | Make a basic GraphQL call | [fetch-fact-sheets.js](api-calls/fetch-fact-sheets.js) |
 | Start with the simplest example | [hello-world.js](basic/hello-world.js) |
