@@ -113,7 +113,6 @@ Load these files **only when needed** for specific workflow steps:
 | [`references/NAMING-CONVENTION.md`](references/NAMING-CONVENTION.md) | Analyzing/standardizing automations | Naming convention, categories |
 | [`references/WORKSPACE-ANALYSIS.md`](references/WORKSPACE-ANALYSIS.md) | Analyzing workspace automations | Full audit workflow, report format |
 | [`references/MANAGE-AUTOMATIONS.md`](references/MANAGE-AUTOMATIONS.md) | Managing existing automations | Transfer, enable/disable, troubleshoot, bulk update |
-| [`assets/MCP-SETUP.md`](assets/MCP-SETUP.md) | Setting up MCP connection | MCP server configuration |
 
 ---
 
@@ -187,7 +186,7 @@ Then **stop the workflow** — do not continue without automation tools, as depl
 > claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"
 > ```
 >
-> See [MCP Setup](assets/MCP-SETUP.md) for full instructions.
+> See [MCP Setup](../../MCP-SETUP.md) for full instructions.
 
 ---
 

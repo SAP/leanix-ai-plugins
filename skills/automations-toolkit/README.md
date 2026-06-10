@@ -4,7 +4,10 @@ An [Agent Skill](https://agentskills.io) that builds, debugs, and deploys LeanIX
 
 ## Prerequisites
 
-The [LeanIX MCP Server](https://help.sap.com/docs/leanix/ea/mcp-server) must be configured so your agent can call LeanIX tools. See [`assets/MCP-SETUP.md`](assets/MCP-SETUP.md) for configuration details, or copy [`assets/.mcp.json`](assets/.mcp.json) into your project as a drop-in OAuth config (no secrets — Claude Code triggers the sign-in flow on first connection).
+This skill calls the [LeanIX MCP Server](https://help.sap.com/docs/leanix/ea/mcp-server).
+
+- **Claude Code users:** the MCP server is bundled with the `sap-leanix` plugin. Install the plugin and Claude Code triggers the OAuth sign-in flow on first connection — no manual setup required.
+- **Other agents or advanced setups (Cursor, Codex, Gemini CLI, technical user / API token, etc.):** see [`MCP-SETUP.md`](../../MCP-SETUP.md) at the repo root for the full setup walkthrough.
 
 ## Installation
 
@@ -16,5 +19,4 @@ Install via the Claude Code plugin marketplace (see [repo README](../../README.m
 |------|---------|
 | `SKILL.md` | Main skill file (entry point) |
 | `references/` | API docs, templates, model info, naming conventions |
-| `assets/` | MCP setup guide and example config |
 | `examples/` | 29 production-tested automation scripts by category |
