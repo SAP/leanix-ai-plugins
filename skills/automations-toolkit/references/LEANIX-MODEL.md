@@ -27,7 +27,7 @@ This document provides a **static reference** for the standard LeanIX data model
 
 | Method | How | Benefits |
 |--------|-----|----------|
-| **MCP Server** | Configure LeanIX MCP Server (see `../assets/MCP-SETUP.md`) | Real-time queries, interactive |
+| **MCP Server** | Use the LeanIX MCP Server (auto-configured by the `sap-leanix` plugin) | Real-time queries, interactive |
 | **MCP Tools** | `mcp__leanix__get_fact_sheet_types()`, `mcp__leanix__get_overview()` | Live workspace data |
 
 **Live discovery provides:**
