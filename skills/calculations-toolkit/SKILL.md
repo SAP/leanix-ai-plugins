@@ -114,7 +114,6 @@ Load these files **only when needed** for specific workflow steps:
 | `references/LEANIX-MODEL.md` | Understanding field types | Fact sheet types, relations, field access |
 | `references/NAMING-CONVENTION.md` | Standardizing names | Naming convention |
 | `references/ANALYSIS-RULES.md` | Analyzing calculations | Code analysis rules, workspace checks |
-| `assets/MCP-SETUP.md` | Setting up MCP connection | MCP server configuration |
 
 ---
 
@@ -188,7 +187,7 @@ Then **stop the workflow** — do not continue without calculation tools, as cre
 > claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,calculations,custom_reports"
 > ```
 >
-> See [MCP Setup](assets/MCP-SETUP.md) for full instructions.
+> See [MCP Setup](../../MCP-SETUP.md) for full instructions.
 
 ---
 
@@ -204,7 +203,6 @@ MCP handles authentication and workspace connection automatically. No credential
 **Display:** `Connected to LeanIX workspace - Ready to create calculations.`
 
 **Fallback:** If MCP not configured, offer to set up MCP.
-→ **For MCP setup details:** Load `assets/MCP-SETUP.md`
 
 ---
 
