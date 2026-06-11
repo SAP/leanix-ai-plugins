@@ -21,7 +21,10 @@
       "category": "enterprise",
       "source": "./",
       "strict": false,
-      "skills": ["./skills/automations-toolkit"]
+      "skills": [
+        "./skills/automations-toolkit",
+        "./skills/calculations-toolkit"
+      ]
     }
   ]
 }

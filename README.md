@@ -12,9 +12,10 @@ The skills in this repository are designed to work with the [LeanIX MCP Server](
 
 All skills below ship inside the `sap-leanix` plugin. Installing the plugin makes every listed skill available; new skills are added by appending to the plugin's `skills` array — no separate installs.
 
-| Skill | Description |
-|-------|-------------|
-| [automations-toolkit](skills/automations-toolkit/) | Build, debug, and deploy LeanIX automation scripts |
+| Skill                                                | Description                                        |
+|------------------------------------------------------|----------------------------------------------------|
+| [automations-toolkit](skills/automations-toolkit/)   | Build, debug, and deploy LeanIX automation scripts |
+| [calculations-toolkit](skills/calculations-toolkit/) | Create, debug, and manage calculations             |
 
 ## Requirements and Setup
 
