@@ -88,12 +88,12 @@ Inside Claude Code, each skill is invoked as `sap-leanix:<skill-name>`.
 
 4. **Register in `marketplace.json`** — append `"./skills/<skill-name>"` to the `sap-leanix` plugin's `skills` array. Do not create a separate plugin entry.
 
-5. **⚠️ Extend the LeanIX MCP toolsets in [`.mcp.json`](.mcp.json) — REQUIRED if your skill calls a toolset not already in the URL.** If you skip this, plugin users will install the skill, invoke it, and silently get errors because the tools they need are not exposed by the MCP server.
+5. **⚠️ Extend the LeanIX MCP toolsets in [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) — REQUIRED if your skill calls a toolset not already in the URL.** If you skip this, plugin users will install the skill, invoke it, and silently get errors because the tools they need are not exposed by the MCP server.
 
    **What to do:**
-   - Open the plugin-root [`.mcp.json`](.mcp.json) and look at the `?toolsets=` query parameter on the `leanix` server URL. Today it lists `inventory,automations`.
+   - Open the `sap-leanix` plugin entry in [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) and look at the `?toolsets=` query parameter on the `mcpServers.leanix.url`. Today it lists `inventory,automations,calculations,custom_reports`.
    - Identify which LeanIX MCP toolsets your skill calls (see the authoritative list in [`MCP-SETUP.md`](MCP-SETUP.md) §Toolsets, or the [LeanIX MCP server source](https://github.com/leanix/mcp-server/blob/main/mcp_server/core/types/toolset_types.py)).
-   - Append any missing toolsets to the URL. Example: a discovery-inbox skill changes `?toolsets=inventory,automations` → `?toolsets=inventory,automations,discovery_inbox`.
+   - Append any missing toolsets to the URL. Example: a discovery-inbox skill changes `?toolsets=inventory,automations,calculations,custom_reports` → `?toolsets=inventory,automations,calculations,custom_reports,discovery_inbox`.
 
    **Why this is required, not optional:**
    - The LeanIX MCP server returns its 8 *default* toolsets when no `?toolsets=` param is set (e.g. `inventory`, `roadmap_planning`, `architecture_decisions`, …). The 7 *optional* toolsets (`automations`, `integrations`, `rba_rsa`, `discovery_inbox`, `structural_search`, `calculations`, `catalogs`) are hidden by default and must be opted in.
@@ -101,9 +101,17 @@ Inside Claude Code, each skill is invoked as `sap-leanix:<skill-name>`.
    - The server enforces a **max of 10 toolsets per request**. There are 15 total, so we cannot bundle everything up front — we expand as skills are added.
    - This applies whether the toolset is a default or optional one — once the URL declares any toolset list, the listed set is what users get.
 
-6. **Update README.md** — add a row to the Available Skills table; document any setup the skill requires beyond the bundled LeanIX MCP server (extra credentials, external services, etc.).
+   **Why inline (not a path)?** The marketplace spec accepts `mcpServers` as either a string path or an inline object, but the string-path form (`"mcpServers": "./.mcp.json"`) does not register the server at install time — verified empirically. The inline object form is the only working pattern under `strict: false`.
 
-7. **Validate** — `claude plugin validate .` passes, and the plugin successfully installs and runs the skill in Claude Code.
+6. **⚠️ Include the auth-check line in `SKILL.md`** — REQUIRED if your skill calls any `mcp__leanix__*` tool. Copy this exact line into the SKILL body (in or near the API access section):
+
+   > Before any LeanIX tool call: if only `mcp__leanix__authenticate` and `mcp__leanix__complete_authentication` are available, tell the user to run `/mcp` and authenticate the `leanix` server (browser opens automatically). Do NOT call `authenticate` yourself or suggest `claude mcp add` — the former returns a URL without triggering the browser flow (copy-paste UX), the latter would shadow the plugin's bundled server. If `/mcp` doesn't surface tools after auth, treat it as a plugin bug.
+
+   **Why:** the LeanIX MCP server exposes `authenticate` / `complete_authentication` as agent-callable tools alongside the standard OAuth metadata. Without this guidance, the agent picks the tool path on the first call (when only those two tools are visible pre-auth), the tool returns an OAuth URL string, and the agent surfaces it as plain text — bypassing Claude Code's standard `/mcp` browser-popup flow. Functional but bad UX.
+
+7. **Update README.md** — add a row to the Available Skills table; document any setup the skill requires beyond the bundled LeanIX MCP server (extra credentials, external services, etc.).
+
+8. **Validate** — `claude plugin validate .` passes, and the plugin successfully installs and runs the skill in Claude Code.
 
 ## Releases and Versioning
 

@@ -39,6 +39,8 @@ Comprehensive help for LeanIX Calculations: create, debug, design, and manage.
 - **No bearer tokens** need to be managed in the skill workflow
 - **No `.mcp.json` parsing** is required — MCP handles credentials automatically
 
+Before any LeanIX tool call: if only `mcp__leanix__authenticate` and `mcp__leanix__complete_authentication` are available, tell the user to run `/mcp` and authenticate the `leanix` server (browser opens automatically). Do NOT call `authenticate` yourself or suggest `claude mcp add` — the former returns a URL without triggering the browser flow (copy-paste UX), the latter would shadow the plugin's bundled server. If `/mcp` doesn't surface tools after auth, treat it as a plugin bug.
+
 ---
 
 > ## ⚠️ WORKSPACE-SPECIFIC DATA MODEL

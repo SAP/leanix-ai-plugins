@@ -10,6 +10,7 @@
   "plugins": [
     {
       "name": "sap-leanix",
+      "displayName": "SAP LeanIX",
       "description": "Agent Skills that extend AI coding agents with SAP LeanIX workflows and domain knowledge via the LeanIX MCP server.",
       "author": {
         "name": "SAP LeanIX"
@@ -21,6 +22,12 @@
       "category": "enterprise",
       "source": "./",
       "strict": false,
+      "mcpServers": {
+        "leanix": {
+          "type": "http",
+          "url": "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations,calculations,custom_reports"
+        }
+      },
       "skills": [
         "./skills/automations-toolkit",
         "./skills/calculations-toolkit"
