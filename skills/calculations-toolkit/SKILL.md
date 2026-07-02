@@ -19,6 +19,8 @@ allowed-tools:
   - mcp__leanix__disable_calculation
   - mcp__leanix__delete_calculation
   - mcp__leanix__test_run_calculation
+  - mcp__leanix__list_execution_logs
+  - mcp__leanix__get_execution_log
   - mcp__leanix__list_graphql_types
   - mcp__leanix__get_graphql_type_definitions
   - mcp__leanix__get_fact_sheet_types
@@ -872,6 +874,83 @@ Summarize:
 
 ---
 
+## Debugging with Execution Logs
+
+Use execution logs to audit calculation behavior, diagnose failures, and inspect exactly what ran and why.
+
+### When to Use
+
+| Scenario | Tool |
+|----------|------|
+| Show recent runs for a calculation | `list_execution_logs` with `calculation_id` |
+| Find all failures in the last week | `list_execution_logs(status=["failed"], date_from=<date>, date_to=<date>)` |
+| Inspect why a specific fact sheet has an unexpected value | `list_execution_logs` with `fact_sheet_id` |
+| Understand what triggered a recalculation | `list_execution_logs` — inspect `trigger` in results |
+| See the exact code and context data that ran | `get_execution_log` with the log entry `id` |
+
+### Common Workflows
+
+**Diagnose a failed run:**
+```
+Tool: mcp__leanix__list_execution_logs
+Parameters:
+  calculation_id: ["{UUID}"]
+  status: ["failed"]
+```
+Then for each entry:
+```
+Tool: mcp__leanix__get_execution_log
+Parameters:
+  id: "{entry-id}"
+```
+Inspect: `input.code` (code that ran), `input.contextData` (data the code received), `codeVersionStatus`.
+
+**Audit what value was written and why:**
+```
+Tool: mcp__leanix__list_execution_logs
+Parameters:
+  calculation_id: ["{UUID}"]
+  fact_sheet_id: ["{UUID}"]
+```
+Then:
+```
+Tool: mcp__leanix__get_execution_log
+Parameters:
+  id: "{entry-id}"
+```
+Inspect: `output` (value written), `previousValue`, `input.contextData`, `finishedAt`.
+
+**Trace recent execution history:**
+```
+Tool: mcp__leanix__list_execution_logs
+Parameters:
+  calculation_id: ["{UUID}"]
+  date_from: "2026-06-01T00:00:00Z"
+  date_to: "2026-06-30T23:59:59Z"
+```
+Inspect `trigger` field in results to understand what caused each run.
+
+**Investigate unexpected value on a fact sheet:**
+```
+Tool: mcp__leanix__list_calculations
+```
+Find the `calculationId` for the target field, then:
+```
+Tool: mcp__leanix__list_execution_logs
+Parameters:
+  calculation_id: ["{UUID}"]
+  fact_sheet_id: ["{UUID}"]
+```
+Then:
+```
+Tool: mcp__leanix__get_execution_log
+Parameters:
+  id: "{most-recent-entry-id}"
+```
+Inspect `input.contextData` (what data the code saw) and `output` (what it wrote).
+
+---
+
 ## Quick Reference
 
 **Data Access Patterns:**
@@ -934,6 +1013,12 @@ mcp__leanix__delete_calculation        - Delete calculation
 mcp__leanix__enable_calculation        - Set status to active
 mcp__leanix__disable_calculation       - Set status to inactive
 mcp__leanix__test_run_calculation      - Test code against a fact sheet/relation without saving
+```
+
+### Execution Logs
+```
+mcp__leanix__list_execution_logs       - List execution logs; filter by date_from/date_to, status[], trigger[], calculation_id[], fact_sheet_id[]
+mcp__leanix__get_execution_log         - Get full detail of a single log entry: input.code, input.contextData, output, previousValue, codeVersionStatus
 ```
 
 ### Search Users

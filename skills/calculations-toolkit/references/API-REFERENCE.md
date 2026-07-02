@@ -308,3 +308,65 @@ Components:
 - `{INSTANCE}` - LeanIX instance (e.g., `demo-eu-8`)
 - `{WORKSPACE}` - Workspace name from JWT payload
 - `{ID}` - Calculation UUID
+
+---
+
+## Execution Logs
+
+Execution logs record every time a calculation runs — including the code that executed, the context data it received, the value it wrote, and the outcome.
+
+### `list_execution_logs`
+
+Lists calculation execution log entries, most recent first. Supports cursor-based pagination (`page_size`, `cursor` → `nextCursor`).
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `calculation_id` | UUID[] (optional) | Filter to one or more calculations |
+| `fact_sheet_id` | UUID[] (optional) | Filter to one or more affected fact sheets (matches either side of a relation) |
+| `status` | string[] (optional) | Any of: `"value-changed"`, `"no-change"`, `"field-cleared"`, `"failed"` |
+| `trigger` | string[] (optional) | Any of: `"fact-sheet-update"`, `"calculation-update"`, `"scheduled-update"`, `"meta-model-change"` |
+| `date_from` | ISO 8601 string (optional) | Only logs finished at or after this timestamp |
+| `date_to` | ISO 8601 string (optional) | Only logs finished at or before this timestamp |
+
+**Returns:** Array of log entries. Key fields per entry:
+
+| Field | Description |
+|-------|-------------|
+| `id` | Log entry UUID |
+| `calculationId` | The calculation that ran |
+| `calculationName` | Name of the calculation at run time |
+| `factSheetId` | UUID of the affected fact sheet |
+| `factSheetName` | Name of the affected fact sheet |
+| `status` | `"value-changed"`, `"no-change"`, `"field-cleared"`, or `"failed"` |
+| `trigger` | What triggered the run |
+| `startedAt` / `finishedAt` | Run timestamps |
+| `output` | Value written, or null if field was cleared or no value produced |
+| `triggerFieldKey` | Input field whose change triggered the run |
+| `triggerNewValue` | New value of the triggering field |
+
+### `get_execution_log`
+
+Retrieves the full detail of a single execution log entry, including the code and context data that ran.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | UUID (required) | Log entry ID from `list_execution_logs` |
+
+**Returns:** All list fields plus:
+
+| Field | Description |
+|-------|-------------|
+| `previousValue` | Field value before this run (null if none) |
+| `input.code` | The exact JavaScript source code that executed |
+| `input.contextData` | The `data` object the code received |
+| `codeVersionStatus` | `"current"` if still the latest code, `"older"` if superseded |
+
+### Typical Use Cases
+
+| Goal | Call |
+|------|------|
+| Find recent failures | `list_execution_logs(calculation_id=[...], status=["failed"])` |
+| Inspect a specific run | `get_execution_log(id)` |
+| Audit what ran on a fact sheet | `list_execution_logs(fact_sheet_id=[...])` |
+| Filter by time window | `list_execution_logs(date_from=..., date_to=...)` |
+| Understand trigger history | `list_execution_logs(calculation_id=[...])` → inspect `trigger` field |
