@@ -328,21 +328,35 @@ Lists calculation execution log entries, most recent first. Supports cursor-base
 | `date_from` | ISO 8601 string (optional) | Only logs finished at or after this timestamp |
 | `date_to` | ISO 8601 string (optional) | Only logs finished at or before this timestamp |
 
-**Returns:** Array of log entries. Key fields per entry:
+**Returns:** Array of log entries. Fields per entry:
 
 | Field | Description |
 |-------|-------------|
 | `id` | Log entry UUID |
-| `calculationId` | The calculation that ran |
+| `startedAt` / `finishedAt` | When the run started / finished |
+| `calculationId` | The calculation that produced this entry |
+| `calculationType` | `"fact-sheet"` or `"relation"` |
 | `calculationName` | Name of the calculation at run time |
-| `factSheetId` | UUID of the affected fact sheet |
-| `factSheetName` | Name of the affected fact sheet |
+| `factSheetId` | UUID of the affected fact sheet (to-side for relations) |
+| `factSheetName` | Display name of the affected fact sheet |
+| `factSheetType` | Type of the affected fact sheet (e.g. `"Application"`) |
+| `relationId` | Affected relation instance; null for fact-sheet calculations |
+| `fromFactSheetId` / `fromFactSheetName` / `fromFactSheetType` | Source fact sheet of the relation; null for fact-sheet calculations |
+| `relationType` | Directional relation name (e.g. `"relApplicationToBusinessCapability"`); null for fact-sheet calculations |
+| `affectedFieldKey` | The field key the run wrote to |
+| `trigger` | What caused the run: `"fact-sheet-update"`, `"calculation-update"`, `"scheduled-update"`, `"meta-model-change"` |
+| `triggerEventType` | For `fact-sheet-update`, the event classification (`"factSheet"` or `"relation"`); null otherwise |
+| `triggerEventSubType` | For `fact-sheet-update`, the fact sheet type or relation type of the event; null otherwise |
+| `triggerAction` | For `fact-sheet-update`, the change action (`"created"`, `"updated"`, `"deleted"`, `"switched"`); null otherwise |
 | `status` | `"value-changed"`, `"no-change"`, `"field-cleared"`, or `"failed"` |
-| `trigger` | What triggered the run |
-| `startedAt` / `finishedAt` | Run timestamps |
-| `output` | Value written, or null if field was cleared or no value produced |
-| `triggerFieldKey` | Input field whose change triggered the run |
-| `triggerNewValue` | New value of the triggering field |
+| `output` | Value written; null when `status` is `no-change` |
+| `outputType` | Discriminates what `output` represents: `string`, `number`, `boolean`, `object`, `array`, `null`, `undefined` |
+| `triggeredAt` | When the triggering event occurred |
+| `triggerFactSheetId` / `triggerFactSheetName` / `triggerFactSheetType` | The fact sheet that caused the trigger; null for scheduled and calculation-update triggers |
+| `triggerFromFactSheetId` / `triggerFromFactSheetName` / `triggerFromFactSheetType` | Source fact sheet of a triggering relation; null when the trigger was not a relation change |
+| `triggerRelationId` | The relation that caused the trigger; null when the trigger was not a relation change |
+| `triggerNewValue` | New value of the triggering field at event time, parsed from its JSON-encoded stored representation; null if none |
+| `priority` | Execution priority of the job |
 
 ### `get_execution_log`
 
@@ -356,7 +370,9 @@ Retrieves the full detail of a single execution log entry, including the code an
 
 | Field | Description |
 |-------|-------------|
-| `previousValue` | Field value before this run (null if none) |
+| `triggeredByUser` | The user who triggered the run, resolved from MTM: `{ id, name, email }`. Null for system-triggered runs or when the user cannot be resolved |
+| `previousValue` | Field value before this run; null when `status` is `no-change` at the MCE stage |
+| `previousValueType` | Discriminates what `previousValue` represents: `string`, `number`, `boolean`, `object`, `array`, `null`, `undefined` |
 | `input.code` | The exact JavaScript source code that executed |
 | `input.contextData` | The `data` object the code received |
 | `codeVersionStatus` | `"current"` if still the latest code, `"older"` if superseded |
