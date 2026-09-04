@@ -1,31 +1,29 @@
-# LeanIX MCP Server Setup Guide
+# LeanIX MCP Server Setup
 
-SAP LeanIX provides an official MCP (Model Context Protocol) server that exposes enterprise architecture APIs as discoverable tools for AI applications.
+SAP LeanIX provides an official MCP server exposing enterprise architecture APIs as discoverable tools for AI clients.
 
-## Table of Contents
+> **Important:** Activate Base AI Capabilities in your workspace for full MCP precision. Without it, response quality is significantly reduced.
 
-- [Overview](#overview)
-- [Admin Configuration](#admin-configuration)
-- [Authentication Methods](#authentication-methods)
-- [Client Configuration](#client-configuration)
-- [Toolsets](#toolsets)
-- [Troubleshooting](#troubleshooting)
+The MCP server is **enabled by default** for all SAP LeanIX APM customers. Available tools depend on the authenticated user's permissions.
 
 ---
 
-## Overview
+## Table of Contents
 
-The LeanIX MCP Server enables AI clients to securely access enterprise architecture data. It exposes selected LeanIX APIs as structured tools that AI applications can discover and invoke.
-
-The MCP server is **enabled by default** for all SAP LeanIX Application Portfolio Management customers. Available tools depend on the authenticated user's permissions — the server returns only tools the user can access.
-
-> **Important:** Activate Base AI Capabilities in your workspace for full MCP precision. Without it, response quality is significantly reduced.
+- [Admin Configuration](#admin-configuration)
+- [Authentication Methods](#authentication-methods)
+- [Client Configuration](#client-configuration)
+- [Progressive Tool Discovery](#progressive-tool-discovery)
+- [Toolsets](#toolsets)
+- [Discovering Available Tools](#discovering-available-tools)
+- [Security Recommendations](#security-recommendations)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Admin Configuration
 
-Administrators control MCP access in the SAP LeanIX Administration section.
+Enable/disable MCP access and manage technical users at **Administration > MCP Server**. Toggle **Progressive Tool Discovery** at **Administration > MCP Server > Progressive Tool Discovery**.
 
 ---
 
@@ -33,47 +31,59 @@ Administrators control MCP access in the SAP LeanIX Administration section.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| **OAuth (User-Based)** | `https://mcp.leanix.net/services/mcp-server/v1/mcp` | Recommended for individual users. OAuth 2.0 flow via browser. Expires in 24 hours. |
-| **Technical User (API Token)** | `https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp` | For automated workflows and non-interactive access. Uses API token. |
+| **OAuth (User-Based)** | `https://mcp.leanix.net/services/mcp-server/v1/mcp` | OAuth 2.0 via browser. Session expires in 24 hours. |
+| **Technical User (API Token)** | `https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp` | For automated/non-interactive access. |
 
-> **Note:** OAuth and Technical User auth use **different endpoints**. OAuth uses `mcp.leanix.net` (no subdomain). Technical users use `{SUBDOMAIN}.leanix.net`.
+> **Note:** OAuth uses `mcp.leanix.net` (no subdomain); technical users use `{SUBDOMAIN}.leanix.net`.
 
-### OAuth (Recommended for Users)
-
-Users authenticate through a standard OAuth 2.0 flow — prompted to sign in via browser. No credentials are passed directly in the request header.
-
-Re-authenticate when your 24-hour session expires.
-
-### Technical User (API Token)
-
-Technical users authenticate using an API token. Create one at **Administration > Technical Users**.
-
-Two header formats are supported:
+### Technical User Token Formats
 
 | Format | Header |
 |--------|--------|
-| **API Token** (simplest) | `Authorization: Token {YOUR-API-TOKEN}` |
+| **API Token** | `Authorization: Token {YOUR-API-TOKEN}` |
 | **Bearer Token** (JWT) | `Authorization: Bearer {YOUR-JWT}` |
+
+Create technical users at **Administration > Technical Users**.
 
 ---
 
 ## Client Configuration
 
-> **Note:** For automation development, append `?toolsets=inventory,automations` to the URL in all configurations below. Without this, automation tools won't be available.
+Use the **clean URL** (no `?toolsets=`) as the primary form — PTD handles on-demand loading, and without PTD it loads all 12 default toolsets. Use `?toolsets=` only when PTD is unavailable or you need optional toolsets. See [Progressive Tool Discovery](#progressive-tool-discovery) and [Toolsets](#toolsets).
 
-### Claude Code — OAuth (Simplest)
+### Claude Code — OAuth (Recommended)
 
-One command, no tokens needed:
+```bash
+claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp"
+```
+
+Sign in via browser when prompted. Re-authenticate every 24 hours.
+
+**Without PTD — explicit toolsets:**
 
 ```bash
 claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"
 ```
 
-You'll be prompted to sign in via your browser. Re-authenticate every 24 hours.
-
 ### Claude Code — Technical User (Dynamic Credentials)
 
-For switching between workspaces using environment variables. Add to `.mcp.json`:
+Add to `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "leanix": {
+      "type": "http",
+      "url": "https://${LEANIX_SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp",
+      "headers": {
+        "Authorization": "Token ${LEANIX_API_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Without PTD — explicit toolsets:**
 
 ```json
 {
@@ -89,7 +99,7 @@ For switching between workspaces using environment variables. Add to `.mcp.json`
 }
 ```
 
-Set environment variables before starting Claude Code:
+Set environment variables before starting:
 
 ```bash
 export LEANIX_SUBDOMAIN="your-instance"
@@ -97,14 +107,30 @@ export LEANIX_API_TOKEN="LXT_your_token_here"
 claude
 ```
 
-Switch workspaces by changing the environment variables and restarting.
-
 ### Claude Desktop — Technical User
 
-Requires `npx` installed. Add to your Claude Desktop configuration:
+Requires `npx`. Config location:
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 
-**macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+```json
+{
+  "mcpServers": {
+    "leanix": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp",
+        "--header",
+        "Authorization: Token {YOUR-API-TOKEN}"
+      ]
+    }
+  }
+}
+```
+
+**Without PTD — explicit toolsets:**
 
 ```json
 {
@@ -130,6 +156,22 @@ Requires `npx` installed. Add to your Claude Desktop configuration:
   "mcpServers": {
     "leanix": {
       "type": "streamableHttp",
+      "url": "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp",
+      "headers": {
+        "Authorization": "Token {YOUR-API-TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Without PTD — explicit toolsets:**
+
+```json
+{
+  "mcpServers": {
+    "leanix": {
+      "type": "streamableHttp",
       "url": "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations",
       "headers": {
         "Authorization": "Token {YOUR-API-TOKEN}"
@@ -140,6 +182,22 @@ Requires `npx` installed. Add to your Claude Desktop configuration:
 ```
 
 ### Cursor
+
+```json
+{
+  "mcpServers": {
+    "leanix": {
+      "transport": "streamableHttp",
+      "url": "https://{SUBDOMAIN}.leanix.net/services/mcp-server/v1/mcp",
+      "headers": {
+        "Authorization": "Token {YOUR-API-TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Without PTD — explicit toolsets:**
 
 ```json
 {
@@ -157,19 +215,171 @@ Requires `npx` installed. Add to your Claude Desktop configuration:
 
 ---
 
+## Progressive Tool Discovery
+
+PTD is a workspace-level setting that changes how tools are delivered at connect time.
+
+**PTD off (default):** full tool catalog sent at connect — all tools visible immediately, but consumes significant context window.
+
+**PTD on:** only three meta-tools delivered at connect. The AI discovers and loads tools on demand. **Reduces initial token consumption by up to 97%.**
+
+Enable at: **Administration > MCP Server > Progressive Tool Discovery**. Changes apply to new sessions only.
+
+### The Three Discovery Meta-Tools
+
+| Tool | Purpose |
+|------|---------|
+| `search_mcp_tools` | Search the full tool catalog by keyword |
+| `get_mcp_tools_schema` | Retrieve parameter schema for a tool by name |
+| `call_tool` | Invoke any catalog tool by name with arguments |
+
+Optional toolsets (`automations`, `calculations`, etc.) are reachable via PTD without `?toolsets=`.
+
+### PTD vs. Explicit Toolsets
+
+| | PTD (clean URL) | Explicit `?toolsets=` |
+|---|---|---|
+| Context at connect | Minimal (~3 meta-tools) | Full catalog of requested toolsets |
+| Optional toolsets accessible | Yes, via discovery | Only those listed |
+| Per-prompt latency | Small discovery overhead | None |
+| Requires admin enablement | Yes | No |
+| `?toolsets=` present | PTD disabled for that session | Always explicit mode |
+
+**Key rule:** `?toolsets=` in the URL disables PTD for that session regardless of workspace setting.
+
+---
+
 ## Toolsets
 
-The `automations` toolset is **hidden by default** and must be explicitly activated via the `?toolsets=` query parameter.
+Default toolsets are active when no `?toolsets=` is specified. Optional toolsets must be explicitly listed or discovered via PTD.
 
-> **Important for automation development:** Without `?toolsets=automations`, tools like `list_automations`, `create_automation`, `get_automation_script` won't be available.
+> When `?toolsets=` is specified, **only** listed toolsets are active — defaults are not included unless explicitly listed. Maximum 10 toolsets per request.
 
-Append `?toolsets=` to the MCP server URL:
+### Default Toolsets
+
+| Toolset | Key | Description |
+|---------|-----|-------------|
+| Inventory | `inventory` | Get fact sheet information |
+| Report Diagrams | `report_diagrams` | Get report and diagram information |
+| Roadmap Planning | `roadmap_planning` | Get initiatives and transformation information |
+| Collaboration | `collaboration` | Collaboration and To-Do management |
+| Surveys | `surveys` | Create or get survey information |
+| Architecture Decisions | `architecture_decisions` | Create or get architecture decision information |
+| Self-Built Software | `self_built_software` | Tech stack management discovery |
+| Skills | `skills` | LeanIX skill guidance (`activate_leanix_skill`, `load_leanix_skill_reference`) |
+| Insights | `insights` | Workspace insights and analytics |
+| Code Execution | `code_execution` | Run code against workspace data |
+| LeanIX Agents | `leanix_agents` | LeanIX agent invocation (feature-flag gated) |
+| Data Maintenance | `data_maintenance` | Data maintenance and cleanup operations |
+
+### Optional Toolsets
+
+| Toolset | Key | Description |
+|---------|-----|-------------|
+| Automations | `automations` | Create, read, update, delete automations and scripts |
+| Calculations | `calculations` | Calculations and execution logs |
+| Custom Reports | `custom_reports` | Custom report guide |
+| Integrations | `integrations` | Sync log, Signavio configurations |
+| RBA/RSA | `rba_rsa` | Reference business/solution architecture search |
+| Discovery Inbox | `discovery_inbox` | Discovery inbox items, linking, rejection |
+| Catalogs | `catalogs` | Catalog exploration |
+| Product Information | `product_information` | SAP product information (SAP Help) |
+| Diagrams | `diagrams` | Diagram tools (note: `report_diagrams` is default; `diagrams` is optional) |
+| KPIs | `kpis` | KPI data |
+| Custom Integrations | `custom_integrations` | Custom integration configuration |
+| Metrics | `metrics` | Metrics data |
+
+### Pinned Tools (always visible)
+
+- `activate_leanix_skill`
+- `load_leanix_skill_reference`
+- `open_relations_explorer`
+- `list_fact_sheets`
+- `single_fact_sheet`
+- `open_sbom_explorer`
+
+### Common Combinations
+
+| Use Case | Configuration |
+|----------|--------------|
+| Automations development | `?toolsets=inventory,automations` — or clean URL with PTD enabled |
+| Calculations development | `?toolsets=inventory,calculations` |
+| Automations + calculations | `?toolsets=inventory,automations,calculations` |
+| Read-only EA work | Clean URL (omit `?toolsets=`) |
+
+---
+
+## Discovering Available Tools
+
+### With PTD
+
+Prompt the agent directly:
 
 ```
-?toolsets=inventory,automations
+Search for LeanIX tools related to automations.
 ```
 
-When `?toolsets=` is specified, **only** the listed toolsets are returned (default toolsets are no longer included automatically unless listed).
+The agent calls `search_mcp_tools`, inspects results, and loads schemas before invoking tools. No `?toolsets=` required.
+
+### Without PTD
+
+Ask the AI:
+
+```
+What LeanIX MCP tools do you have available?
+```
+
+If a tool is missing, it likely belongs to an optional toolset not in your `?toolsets=` parameter.
+
+### Skill-Based Connectivity Checks
+
+Each skill performs a connectivity check on startup:
+- `/automations-toolkit` calls `list_automations` — reports the missing toolset and fix command on failure.
+- `/calculations-toolkit` calls `list_calculations` — same pattern.
+
+**Quick verification:**
+
+| If this call succeeds... | ...then this toolset is active |
+|--------------------------|-------------------------------|
+| `list_automations` | `automations` |
+| `list_calculations` | `calculations` |
+| `filter_inventory` | `inventory` |
+
+**Re-add with updated toolsets (Claude Code OAuth):**
+
+```bash
+claude mcp remove leanix
+claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"
+```
+
+Restart Claude Code after updating.
+
+---
+
+## Security Recommendations
+
+### API Token Handling
+
+- Never commit API tokens to source control — use environment variables or a secrets manager.
+- Prefer `${LEANIX_API_TOKEN}` in `.mcp.json` over hardcoded values.
+- Add `.mcp.json` to `.gitignore` if it contains literal token values.
+- Rotate tokens regularly via **Administration > Technical Users**.
+
+### Least-Privilege Access
+
+- Create dedicated technical users with only the permissions required for the task.
+- Do not reuse personal API tokens for automated workflows.
+- Use OAuth for interactive use — tokens expire in 24 hours and are not stored in config files.
+
+### Workspace Isolation
+
+- Use separate technical users per workspace when working across multiple environments.
+- The `${LEANIX_SUBDOMAIN}` / `${LEANIX_API_TOKEN}` pattern avoids storing multiple credentials in config files.
+
+### Scoping Toolsets
+
+- Only include toolsets you actually use in `?toolsets=` — broader access increases blast radius on a compromised token.
+- For read-only EA work, omit `?toolsets=` entirely — defaults exclude write-capable toolsets like `automations`.
 
 ---
 
@@ -177,18 +387,55 @@ When `?toolsets=` is specified, **only** the listed toolsets are returned (defau
 
 ### MCP tools not appearing
 
-- Verify `?toolsets=inventory,automations` is included in the URL
-- For Claude Code (OAuth): re-run `claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"`
-- Restart Claude Desktop after configuration changes
-- Check the configuration file syntax (valid JSON)
-- Verify `mcp-remote` is installed: `npx -y mcp-remote --version`
-- Your role may not have permissions for the expected tools
+- Verify the MCP server is enabled: **Administration > MCP Server**
+- Claude Code (OAuth): run `claude mcp list` to confirm the server is registered
+- Restart Claude Desktop after config changes
+- Check config file syntax (valid JSON)
+- Verify `mcp-remote`: `npx -y mcp-remote --version`
+- Your role may lack permissions for the expected tools
 
-### Automation tools specifically missing
+### Automation tools missing
 
-- The `automations` toolset is **optional** — it's hidden unless explicitly requested
-- Ensure the URL includes `?toolsets=automations` (or `?toolsets=inventory,automations`)
-- When `?toolsets=` is specified, only listed toolsets are returned — add all toolsets you need
+`automations` is optional — hidden unless explicitly requested or discovered via PTD.
+
+- **PTD enabled:** use the clean URL. The AI discovers automation tools on demand.
+- **PTD not enabled:** include `?toolsets=automations` (e.g. `?toolsets=inventory,automations`):
+
+```bash
+claude mcp remove leanix
+claude mcp add --transport http leanix "https://mcp.leanix.net/services/mcp-server/v1/mcp?toolsets=inventory,automations"
+```
+
+When `?toolsets=` is specified, only listed toolsets are active.
+
+### Calculation tools missing
+
+`calculations` is optional. Without PTD, use `?toolsets=inventory,calculations`.
+
+### Agent cannot find tools after enabling PTD
+
+PTD applies to new sessions only. Reconnect:
+
+- **Claude Code:** `claude mcp remove leanix`, re-add, or restart
+- **Claude Desktop:** quit and reopen
+
+After reconnecting, `search_mcp_tools`, `get_mcp_tools_schema`, and `call_tool` replace the full catalog.
+
+### Tools still visible after disabling PTD
+
+Same cause — reconnect to pick up the change. Full default toolset catalog resumes at connect time.
+
+### "Only authenticate / complete_authentication tools are visible"
+
+OAuth session not yet established. In Claude Code, run `/mcp` — the browser opens for sign-in. Do not call `authenticate` directly; use `/mcp`.
+
+### Switching between workspaces
+
+```bash
+export LEANIX_SUBDOMAIN="other-instance"
+export LEANIX_API_TOKEN="LXT_other_token"
+claude
+```
 
 ---
 

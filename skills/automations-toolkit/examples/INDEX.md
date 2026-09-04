@@ -1,6 +1,6 @@
 # Examples Index
 
-Centralized catalog of all 30 automation scripts in this repository.
+Centralized catalog of all 32 automation scripts in this repository.
 
 ---
 
@@ -14,6 +14,7 @@ Centralized catalog of all 30 automation scripts in this repository.
 | [subscription-management](#subscription-management) | 3 | Modify subscription types, count roles |
 | [relation-creation](#relation-creation) | 1 | Auto-create relations based on fact sheet attributes |
 | [relation-management](#relation-management) | 2 | Update relation attributes (e.g., risk status) |
+| [relation-field-propagation](#relation-field-propagation) | 2 | Maintain derived Top→Bottom relations across a 3-level hierarchy and propagate relation fields |
 | [relation-propagation](#relation-propagation) | 3 | Propagate relations from child to parent fact sheets |
 | [transitive-relations](#transitive-relations) | 2 | Auto-create relations through an intermediary fact sheet |
 | [lifecycle-management](#lifecycle-management) | 1 | React to lifecycle phase changes |
@@ -96,6 +97,17 @@ Scripts that update relation attributes.
 |--------|------------|---------|-------------|
 | [obsolescence-risk-calculator.js](relation-management/obsolescence-risk-calculator.js) | Advanced | Application Updated | Calculates and sets `obsolescenceRiskStatus` on Application-to-ITComponent relations based on risk target dates and EOL status. Demonstrates relation attribute patching. |
 | [link-app-to-microsoft-itc.js](relation-management/link-app-to-microsoft-itc.js) | Advanced | Fact sheet is created (on Application) | Auto-links new Applications to all Microsoft ITComponents. Demonstrates provider-based auto-linking pattern. |
+
+---
+
+### relation-field-propagation
+
+Scripts that maintain a derived direct Top→Bottom relation across a 3-level hierarchy and copy selected relation fields from the Middle→Bottom link onto it. See the [folder README](relation-field-propagation/README.md) for complete setup instructions.
+
+| Script | Complexity | Trigger | Description |
+|--------|------------|---------|-------------|
+| [field-propagation-through-hierarchy.js](relation-field-propagation/field-propagation-through-hierarchy.js) | Advanced | Relation added/removed/changed (on Top and Middle) | Event-driven. Reacts to Top→Middle and Middle→Bottom relation changes to create, refresh, or delete derived Top→Bottom relations with propagated fields. CONFIG-driven; adapts to any 3-level hierarchy. |
+| [field-propagation-reconciler.js](relation-field-propagation/field-propagation-reconciler.js) | Advanced | Relation removed (on Bottom) and/or schedule | Catch-all, self-healing companion. Full-scans all Tops, recomputes desired Top→Bottom relations from live paths, and brings the workspace into sync — ignoring the description [via:] text for correctness. |
 
 ---
 
@@ -238,7 +250,7 @@ Moderate complexity. GraphQL queries, reconciliation basics.
 9. [archive-on-tag.js](lifecycle-actions/archive-on-tag.js) - Status mutation
 10. [it-app-owner-guard.js](subscription-management/it-app-owner-guard.js) - Single subscription guard
 
-### Advanced (17 scripts)
+### Advanced (19 scripts)
 
 Complex logic. Multi-step mutations, full reconciliation, revision tracking.
 
@@ -259,6 +271,8 @@ Complex logic. Multi-step mutations, full reconciliation, revision tracking.
 15. [risk-currency-itc-trigger.js](tagging/risk-currency-rollup/risk-currency-itc-trigger.js) - Risk Currency rollup (mutation)
 16. [archive-initiative-after-eol.js](archive/archive-initiative-after-eol.js) - Archive after EOL
 17. [llm-eoss-todo-on-application.js](lifecycle-actions/llm-eoss-todo-on-application.js) - To-Do on related FS for role subscribers (GraphQL + REST + idempotency)
+18. [field-propagation-through-hierarchy.js](relation-field-propagation/field-propagation-through-hierarchy.js) - Derived Top→Bottom relations with propagated fields (event-driven)
+19. [field-propagation-reconciler.js](relation-field-propagation/field-propagation-reconciler.js) - Self-healing full-scan reconciler for derived relations
 
 ---
 
@@ -277,6 +291,9 @@ Complex logic. Multi-step mutations, full reconciliation, revision tracking.
 | Enforce single subscription role cardinality | [it-app-owner-guard.js](subscription-management/it-app-owner-guard.js) |
 | Update a relation attribute | [obsolescence-risk-calculator.js](relation-management/obsolescence-risk-calculator.js) |
 | Create relations through intermediary | [app-bc-context-sync.js](transitive-relations/app-bc-context-sync.js) |
+| Maintain derived direct relation across a 3-level hierarchy | [field-propagation-through-hierarchy.js](relation-field-propagation/field-propagation-through-hierarchy.js) |
+| Propagate relation fields from Middle→Bottom onto a Top→Bottom relation | [field-propagation-through-hierarchy.js](relation-field-propagation/field-propagation-through-hierarchy.js) |
+| Self-heal / reconcile derived relations after missed events | [field-propagation-reconciler.js](relation-field-propagation/field-propagation-reconciler.js) |
 | Propagate relations to parent | [bc-propagate-to-parent.js](relation-propagation/bc-propagate-to-parent.js) |
 | React to lifecycle phase change | [bc-eol-break-app-seal.js](lifecycle-management/bc-eol-break-app-seal.js) |
 | Handle multiple related items with tie-breaker | [initiative-status-permission-sync.js](initiative-management/initiative-status-permission-sync.js) |

@@ -27,8 +27,13 @@ This document provides a **static reference** for the standard LeanIX data model
 
 | Method | How | Benefits |
 |--------|-----|----------|
-| **MCP Server** | Use the LeanIX MCP Server (auto-configured by the `sap-leanix` plugin) | Real-time queries, interactive |
-| **MCP Tools** | `mcp__leanix__get_fact_sheet_types()`, `mcp__leanix__get_overview()` | Live workspace data |
+| **MCP Server** | Configure LeanIX MCP Server (see [MCP-SETUP.md](../../../MCP-SETUP.md)) | Real-time queries, interactive |
+| **MCP Tools** | `mcp__leanix__get_workspace_context(...)`, `mcp__leanix__get_overview()` | Live workspace data |
+| **Fact sheet search** | `mcp__leanix__activate_leanix_skill(skill_name="fact-sheet-search")`, then `filter_inventory` / `search_inventory` | Type names, meta model, tags, and inventory queries |
+
+> **Note:** `mcp__leanix__get_overview()` is deprecated but still working.
+>
+> **Note:** `mcp__leanix__get_fact_sheet_types()` is **deprecated (removal 2026-09-01)**. Use `activate_leanix_skill(skill_name="fact-sheet-search")` or `get_workspace_context(include_meta_model=True, fact_sheet_types=[...])` to discover types instead.
 
 **Live discovery provides:**
 - Actual tag IDs (UUIDs) for your workspace
@@ -255,7 +260,7 @@ Custom fields are workspace-specific. Common patterns:
 | 6 | Subscription is removed | Select type + role | |
 | 7 | Relation is added | Select relation | Fires on source FS |
 | 8 | Relation is changed | Select relation | For attribute updates |
-| 9 | Relation is removed | Select relation | ⚠️ Cannot see removed relation |
+| 9 | Relation is removed | Select relation | Removed FS **id** at `data.metadata.triggerData.previousRelatedFactSheetId` (fields not included) |
 | 10 | Tag is added | Select tag | |
 | 11 | Tag is removed | Select tag | |
 | 12 | Completion score is changed | None | ⚠️ Fires very frequently |
@@ -284,7 +289,7 @@ Choose triggers based on your automation goal:
 
 | Trigger | Limitation | Workaround |
 |---------|-----------|------------|
-| **Relation is removed** | Cannot see the removed relation | Trigger on target FS, or use reconciliation pattern |
+| **Relation is removed** | The removed FS's fields are not part of `data.factSheet` | The removed FS **id** is delivered at `data.metadata.triggerData.previousRelatedFactSheetId` (added end: `currentRelatedFactSheetId`), plus `relationId`/`relationType` — GraphQL-fetch by id to read fields. Undocumented/best-effort. For full fields directly, trigger on the target FS or use the reconciliation pattern |
 | **Completion score changed** | Fires on almost any change | Add strict idempotency checks |
 | **Lifecycle state reached** | Checked nightly, not real-time | Use for non-urgent tasks |
 | **Field value is changed** | Only one field per trigger | Create multiple automations for multiple fields |
@@ -328,7 +333,7 @@ Some use cases require multiple automations working together:
 | **Quality seal on EOL** | 1 | Lifecycle state reached | Initiative | Break seals on linked Apps |
 | | 2 | Relation is added | Application | Check Initiative lifecycle |
 
-**Key insight for subscription sync #4**: When "Relation is removed" fires on Application, the Application can no longer see the unlinked ITComponent. So the cleanup automation must be on ITComponent to detect it's been orphaned.
+**Key insight for subscription sync #4**: When "Relation is removed" fires on Application, the removed ITComponent's **id** is delivered at `data.metadata.triggerData.previousRelatedFactSheetId` (undocumented, best-effort — there is no `data.trigger` object). Only the id is provided, not the ITComponent's fields, and its data is no longer part of the Application's own `data.factSheet` view. To act on the orphaned ITComponent's full data, GraphQL-fetch by that id, or run the cleanup automation on ITComponent (or use the reconciliation pattern).
 
 ### Official SAP Example Patterns
 

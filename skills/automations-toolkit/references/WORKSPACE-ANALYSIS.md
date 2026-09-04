@@ -25,7 +25,7 @@ Audit existing automations with a summary-first, drill-down-on-demand approach.
 MCP handles authentication automatically. No credential extraction or token exchange needed.
 
 **Call both in parallel (single message, two tool calls):**
-1. `mcp__leanix__get_overview()` — workspace stats and fact sheet counts
+1. `mcp__leanix__get_overview()` — workspace stats and fact sheet counts (deprecated but still working: remains directly callable, though it may not surface in tool-discovery catalogs)
 2. `mcp__leanix__list_automations()` — all automation summaries
 
 **Also load reference files in parallel** with the MCP calls:
@@ -44,6 +44,15 @@ For specific automations requiring deeper inspection:
 
 **Do not fetch details for all automations upfront.** Only fetch when the user drills into a specific automation or group.
 
+### Run history (execution log)
+
+To audit whether automations are actually *working* — not just how they're configured:
+- `mcp__leanix__list_automation_runs(states=["FAILED"])` — surface failing automations across the workspace (the fastest "what's broken?" query)
+- `mcp__leanix__list_automation_runs(automation_ids=[ID])` — recent runs for one automation
+- `mcp__leanix__get_automation_run(run_id=ID)` — per-action outcomes + error messages for a single run
+
+An automation that is `active` but has zero recent runs (or only FAILED ones) is a health finding worth flagging alongside the config checks below.
+
 ## Step 3: Analyze Automations (LLM-Driven)
 
 Perform analysis **once** on the fetched JSON. Reuse results across all subsequent drill-downs without re-analyzing.
@@ -57,7 +66,7 @@ Perform analysis **once** on the fetched JSON. Reuse results across all subseque
 | **Shared tag trigger** | ■ Critical | Multiple automations using the same `tagId` as trigger — likely unintended |
 | **Active test/debug automations** | ■ Critical | Names containing `[Bug Test]`, `[Test]`, `[POC]` that are `active: true` |
 | **Stale status reference** | ▲ Warning | Description says "INACTIVE" but `active: true` |
-| **Workaround trigger** | ▲ Warning | TAG_ADDITION used where LIFECYCLE_PHASE_REACHED or RELATION would be better |
+| **Workaround trigger** | ▲ Warning | TAG_ADDITION used where LIFECYCLE_PHASE_CHANGE or RELATION would be better |
 | **Never-executed automations** | ▲ Warning | `lastExecutionTime: null` on active automations (may indicate unused or newly deployed) |
 | **Missing description** | ○ Info | Empty or `null` description field |
 | **Non-standard naming** | ○ Info | Missing `[Category]` prefix per naming convention |
@@ -329,7 +338,7 @@ mcp__leanix__update_automation(template_id=ID, description="NEW_DESCRIPTION")
 
 The MCP tool handles the GET-modify-PUT pattern internally. No need to fetch the template first.
 
-**IMPORTANT:** PATCH not supported — the MCP tool uses PUT with full body internally.
+**IMPORTANT:** The MCP `update_automation` tool uses PUT with the full body internally. (The raw `PATCH /templates/{id}` endpoint exists but only toggles the `active` flag — use PUT for any other change.)
 
 ## Step 7: Standardize Names
 

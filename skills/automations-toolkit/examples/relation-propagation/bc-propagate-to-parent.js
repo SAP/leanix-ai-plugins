@@ -20,6 +20,7 @@
  * BCs on the parent are preserved.
  */
 
+const GRAPHQL_URL = "https://INSTANCE.leanix.net/services/pathfinder/v1/graphql";
 const INHERITED_MARKER = "[Auto-inherited from:";
 const INHERITED_MARKER_END = "]";
 
@@ -33,17 +34,45 @@ function isInheritedRelation(description) {
   return description && description.includes(INHERITED_MARKER);
 }
 
-// Helper to get current revision (for retry on REVISION_CLASH)
-async function getCurrentRev(fsId, token, graphqlUrl) {
-  const res = await fetch(graphqlUrl, {
+// Single GraphQL call helper: throws on json.errors (same as the inline checks did)
+async function gql(query, variables, token) {
+  const res = await fetch(GRAPHQL_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: `query ($id: ID!) { factSheet(id: $id) { rev } }`,
-      variables: { id: fsId }
-    }),
+    body: JSON.stringify({ query, variables }),
   });
-  return (await res.json())?.data?.factSheet?.rev;
+  const json = await res.json();
+  if (json?.errors) throw new Error(`GraphQL failed: ${JSON.stringify(json.errors)}`);
+  return json;
+}
+
+// Apply a batch of relation writes to the parent in ONE mutation using
+// relation-scoped upsertRelation / deleteRelation. These are keyed by
+// (from, to, type) and carry NO rev, so they are concurrency-safe against
+// REVISION_CLASH — no getCurrentRev + retry loop is needed.
+// ops: Array of { op: "upsert" | "delete", bcId, description? }
+async function applyRelationBatch(parentId, ops, token) {
+  if (ops.length === 0) return;
+  const varDefs = [];
+  const fields = [];
+  const variables = { type: "relApplicationToBusinessContext" };
+  ops.forEach((o, i) => {
+    variables[`from${i}`] = { id: parentId };
+    variables[`to${i}`] = { id: o.bcId };
+    varDefs.push(`$from${i}: FactSheetIdentifierType!, $to${i}: FactSheetIdentifierType!`);
+    if (o.op === "upsert") {
+      variables[`patches${i}`] = [{ op: "replace", path: "/description", value: o.description }];
+      varDefs.push(`$patches${i}: [Patch!]`);
+      fields.push(`r${i}: upsertRelation(from: $from${i}, to: $to${i}, type: $type, patches: $patches${i}) { relation { id } }`);
+    } else {
+      fields.push(`r${i}: deleteRelation(from: $from${i}, to: $to${i}, type: $type) { relation { id } }`);
+    }
+  });
+  await gql(
+    `mutation ($type: RelationName!, ${varDefs.join(", ")}) { ${fields.join(" ")} }`,
+    variables,
+    token,
+  );
 }
 
 export async function main() {
@@ -52,8 +81,6 @@ export async function main() {
 
   const token = context?.secrets?.["default_automations_secret"]?.value?.bearerToken;
   if (!token) throw new Error("ABORT AUTOMATION RUN - Missing bearerToken");
-
-  const graphqlUrl = "https://INSTANCE.leanix.net/services/pathfinder/v1/graphql";
 
   // Step 1: Query this Application and its parent
   const appQuery = `query ($id: ID!) {
@@ -66,15 +93,7 @@ export async function main() {
     }
   }`;
 
-  const appRes = await fetch(graphqlUrl, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: appQuery, variables: { id: appId } }),
-  });
-
-  const appJson = await appRes.json();
-  if (appJson?.errors) throw new Error(`GraphQL failed: ${JSON.stringify(appJson.errors)}`);
-
+  const appJson = await gql(appQuery, { id: appId }, token);
   const app = appJson?.data?.factSheet;
   if (!app) return {};
 
@@ -115,15 +134,7 @@ export async function main() {
     }
   }`;
 
-  const parentRes = await fetch(graphqlUrl, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query: parentQuery, variables: { id: parent.id } }),
-  });
-
-  const parentJson = await parentRes.json();
-  if (parentJson?.errors) throw new Error(`GraphQL failed: ${JSON.stringify(parentJson.errors)}`);
-
+  const parentJson = await gql(parentQuery, { id: parent.id }, token);
   const parentFs = parentJson?.data?.factSheet;
   if (!parentFs) throw new Error("ABORT AUTOMATION RUN - Parent not found");
 
@@ -172,147 +183,41 @@ export async function main() {
     }
   }
 
-  // Step 5: Add missing BCs to parent
+  // Steps 5 & 6: Build all relation ops, then apply them in ONE mutation.
+  // Uses relation-scoped upsertRelation / deleteRelation (keyed by from/to/type,
+  // no rev) instead of updateFactSheet patches — concurrency-safe, no retry needed.
+  const ops = [];
+
+  // Step 5: Add missing BCs to parent (or update inherited description).
+  // upsertRelation both creates (if absent) and updates (if present), so the
+  // former "add new" and "replace existing" cases collapse into one upsert.
   for (const [bcId, bc] of desiredBCs) {
     // Skip if manually added
     if (manualRelations.has(bcId)) continue;
 
     const newDescription = buildInheritedDescription(bc.childNames);
 
-    // If already inherited, check if we need to update the description
     if (inheritedRelations.has(bcId)) {
+      // Already inherited - only write if the description actually changed
       const existing = inheritedRelations.get(bcId);
       if (existing.description === newDescription) continue; // No change needed
-
-      // Update the relation description with retry on REVISION_CLASH
-      let retries = 3;
-      while (retries > 0) {
-        const currentRev = await getCurrentRev(parentFs.id, token, graphqlUrl);
-        if (!currentRev) throw new Error("Could not get parent rev");
-
-        const updateRes = await fetch(graphqlUrl, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: `mutation ($id: ID!, $rev: Long!, $patches: [Patch]!) {
-              updateFactSheet(id: $id, rev: $rev, patches: $patches, validateOnly: false) {
-                factSheet { id rev }
-              }
-            }`,
-            variables: {
-              id: parentFs.id,
-              rev: currentRev,
-              patches: [{
-                op: "replace",
-                path: `/relApplicationToBusinessContext/${existing.relationId}`,
-                value: JSON.stringify({
-                  factSheetId: bcId,
-                  description: newDescription,
-                }),
-              }],
-            },
-          }),
-        });
-
-        const updateJson = await updateRes.json();
-        if (updateJson?.errors) {
-          const errorMsg = JSON.stringify(updateJson.errors);
-          if (errorMsg.includes("REVISION_CLASH") && retries > 1) {
-            retries--;
-            continue;
-          }
-          throw new Error(`Update BC failed: ${errorMsg}`);
-        }
-        break; // Success
-      }
-      continue;
     }
 
-    // Add new BC relation to parent with retry on REVISION_CLASH
-    let retries = 3;
-    while (retries > 0) {
-      const currentRev = await getCurrentRev(parentFs.id, token, graphqlUrl);
-      if (!currentRev) throw new Error("Could not get parent rev");
-
-      const addRes = await fetch(graphqlUrl, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `mutation ($id: ID!, $rev: Long!, $patches: [Patch]!) {
-            updateFactSheet(id: $id, rev: $rev, patches: $patches, validateOnly: false) {
-              factSheet { id rev }
-            }
-          }`,
-          variables: {
-            id: parentFs.id,
-            rev: currentRev,
-            patches: [{
-              op: "add",
-              path: `/relApplicationToBusinessContext/new_${bcId}`,
-              value: JSON.stringify({
-                factSheetId: bcId,
-                description: newDescription,
-              }),
-            }],
-          },
-        }),
-      });
-
-      const addJson = await addRes.json();
-      if (addJson?.errors) {
-        const errorMsg = JSON.stringify(addJson.errors);
-        if (errorMsg.includes("REVISION_CLASH") && retries > 1) {
-          retries--;
-          continue;
-        }
-        throw new Error(`Add BC failed: ${errorMsg}`);
-      }
-      break; // Success
-    }
+    // Create-or-update the inherited BC relation on the parent.
+    ops.push({ op: "upsert", bcId, description: newDescription });
   }
 
   // Step 6: Remove inherited BCs that no child has anymore
-  for (const [bcId, rel] of inheritedRelations) {
+  for (const [bcId] of inheritedRelations) {
     if (desiredBCs.has(bcId)) continue; // Still needed by a child
 
-    // Remove this inherited relation with retry on REVISION_CLASH
-    let retries = 3;
-    while (retries > 0) {
-      const currentRev = await getCurrentRev(parentFs.id, token, graphqlUrl);
-      if (!currentRev) throw new Error("Could not get parent rev");
-
-      const removeRes = await fetch(graphqlUrl, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `mutation ($id: ID!, $rev: Long!, $patches: [Patch]!) {
-            updateFactSheet(id: $id, rev: $rev, patches: $patches, validateOnly: false) {
-              factSheet { id rev }
-            }
-          }`,
-          variables: {
-            id: parentFs.id,
-            rev: currentRev,
-            patches: [{
-              op: "remove",
-              path: `/relApplicationToBusinessContext/${rel.relationId}`,
-            }],
-          },
-        }),
-      });
-
-      const removeJson = await removeRes.json();
-      if (removeJson?.errors) {
-        const errorMsg = JSON.stringify(removeJson.errors);
-        if (errorMsg.includes("REVISION_CLASH") && retries > 1) {
-          retries--;
-          continue;
-        }
-        throw new Error(`Remove BC failed: ${errorMsg}`);
-      }
-      break; // Success
-    }
+    // These are existing relations (from the parent query), so deleteRelation
+    // by (parent, bcId, type) is guaranteed to find them.
+    ops.push({ op: "delete", bcId });
   }
+
+  // Apply all relation changes to the parent in a single mutation
+  await applyRelationBatch(parentFs.id, ops, token);
 
   return {};
 }
