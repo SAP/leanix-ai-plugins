@@ -19,4 +19,4 @@ Install via the Claude Code plugin marketplace (see [repo README](../../README.m
 |------|---------|
 | `SKILL.md` | Main skill file (entry point) |
 | `references/` | API docs, templates, model info, naming conventions |
-| `examples/` | 29 production-tested automation scripts by category |
+| `examples/` | 32 production-tested automation scripts by category |

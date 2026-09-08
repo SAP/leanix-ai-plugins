@@ -160,7 +160,9 @@ Call `mcp__leanix__list_automations()`. This is a lightweight check that confirm
 
 **If the call succeeds:** Continue to the next step silently (no message needed).
 
-**If the tool is not found / not available:**
+**If `mcp__leanix__list_automations` is not directly available (PTD may be enabled):** Before concluding the toolset is missing, try the PTD proxy path — `call_tool(tool_name='list_automations', arguments={})`, or `search_mcp_tools('automations')` then `call_tool`. If that succeeds, PTD is working; continue silently.
+
+**If both the direct call and the PTD proxy path fail:**
 
 The `automations` toolset is **optional and hidden by default**. Display this message to the user:
 

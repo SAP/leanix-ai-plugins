@@ -1629,7 +1629,7 @@ async function deployMultiTriggerAutomation(token, scriptId, ownerId) {
     factSheetType: "Application",
     trigger: {
       eventType: "SUBSCRIPTION_ADDITION",
-      subscriptionType: "RESPONSIBLE",
+      type: "RESPONSIBLE",
       roleId: "application-owner-role-id"
     },
     conditions: [],
@@ -1649,7 +1649,7 @@ async function deployMultiTriggerAutomation(token, scriptId, ownerId) {
     factSheetType: "Application",
     trigger: {
       eventType: "SUBSCRIPTION_REMOVAL",
-      subscriptionType: "RESPONSIBLE",
+      type: "RESPONSIBLE",
       roleId: "application-owner-role-id"
     },
     conditions: [],
@@ -1705,15 +1705,15 @@ async function deployMultiTriggerAutomation(token, scriptId, ownerId) {
   eventType: "FIELD_CHANGE",
   fieldName: "businessCriticality",
   fieldType: "SINGLE_SELECT",
-  fromValue: null,      // optional: "Empty"
-  toValue: "missionCritical"  // optional: specific value
+  from: { type: "ANYTHING" },              // or { type: "EMPTY" } / { type: "VALUE", value: "..." }
+  to: { type: "VALUE", value: "missionCritical" }
 }
 
 // Subscription Added/Removed
 {
   eventType: "SUBSCRIPTION_ADDITION",  // or "SUBSCRIPTION_REMOVAL"
-  subscriptionType: "RESPONSIBLE",  // or "ACCOUNTABLE", "OBSERVER"
-  roleId: "role-uuid"  // optional
+  type: "RESPONSIBLE",  // or "ACCOUNTABLE", "OBSERVER"
+  roleId: "role-uuid"
 }
 
 // Relation Added/Changed/Removed
@@ -1731,14 +1731,15 @@ async function deployMultiTriggerAutomation(token, scriptId, ownerId) {
 // Quality State Changed
 {
   eventType: "QUALITY_STATE_CHANGE_TO",
-  qualityState: "APPROVED"  // or "BROKEN", "DRAFT", "REJECTED"
+  qualityState: "APPROVED"  // or "BROKEN_QUALITY_SEAL", "DRAFT", "REJECTED"
 }
 
 // Lifecycle State Reached (checked nightly)
 {
   eventType: "LIFECYCLE_PHASE_CHANGE",
-  phase: "endOfLife",  // or "plan", "phaseIn", "active", "phaseOut"
-  daysOffset: -30  // optional: negative = before, positive = after
+  fieldName: "lifecycle",
+  lifecyclePhase: "endOfLife",  // or "plan", "phaseIn", "active", "phaseOut"
+  dateOffset: { active: true, quantity: 30, unit: "DAYS", timing: "BEFORE" }  // unit: DAYS|MONTHS|YEARS, timing: BEFORE|AFTER
 }
 
 // Completion Score Changed
@@ -1884,7 +1885,7 @@ Use when: You want multiple actions to execute in sequence on a trigger.
         "type": "FACT_SHEET_CREATOR"
       },
       "subject": "Application Created",
-      "body": "Your application **{{factSheet.displayName}}** has been created and initialized.\n\n[View Application]({{factSheet.link}})",
+      "body": "Your application **{{{factsheet.displayName}}}** has been created and initialized.\n\n[View Application]({{{link.factsheet}}})",
       "startsAfter": "1_SET_FIELD",
       "onResolution": null
     }
@@ -1961,7 +1962,7 @@ Use when: You need approval before setting a field value, with different outcome
         "type": "FACT_SHEET_CREATOR"
       },
       "subject": "Retirement Request Rejected",
-      "body": "Your retirement request for **{{factSheet.displayName}}** was not approved.",
+      "body": "Your retirement request for **{{{factsheet.displayName}}}** was not approved.",
       "startsAfter": "3_SET_FIELD_REJECTED",
       "onResolution": null
     }
@@ -2103,7 +2104,7 @@ Use when: You want to automatically set quality state to "Approved" when a fact 
       "actionType": "SET_FIELD",
       "fieldType": "QUALITY_SEAL",
       "fieldName": "lxState",
-      "value": {"type": "VALUE", "value": "APPROVED"},
+      "value": "APPROVED",
       "startsAfter": null,
       "onResolution": null
     }
@@ -2139,7 +2140,7 @@ Use when: You want to automatically set quality state to "Approved" when a fact 
       "actionType": "SET_FIELD",
       "fieldType": "QUALITY_SEAL",
       "fieldName": "lxState",
-      "value": {"type": "VALUE", "value": "APPROVED"},
+      "value": "APPROVED",
       "startsAfter": "0_SET_FIELD",
       "onResolution": null
     }

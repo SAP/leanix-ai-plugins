@@ -233,6 +233,8 @@ Enable at: **Administration > MCP Server > Progressive Tool Discovery**. Changes
 | `get_mcp_tools_schema` | Retrieve parameter schema for a tool by name |
 | `call_tool` | Invoke any catalog tool by name with arguments |
 
+Example: to run a catalog tool under PTD, the agent calls `call_tool(tool_name='list_automations', arguments={})` — no `?toolsets=` required.
+
 Optional toolsets (`automations`, `calculations`, etc.) are reachable via PTD without `?toolsets=`.
 
 ### PTD vs. Explicit Toolsets

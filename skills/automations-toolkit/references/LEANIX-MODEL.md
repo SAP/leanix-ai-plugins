@@ -33,7 +33,7 @@ This document provides a **static reference** for the standard LeanIX data model
 
 > **Note:** `mcp__leanix__get_overview()` is deprecated but still working.
 >
-> **Note:** `mcp__leanix__get_fact_sheet_types()` is **deprecated (removal 2026-09-01)**. Use `activate_leanix_skill(skill_name="fact-sheet-search")` or `get_workspace_context(include_meta_model=True, fact_sheet_types=[...])` to discover types instead.
+> **Note:** `mcp__leanix__get_fact_sheet_types()` was **removed as of 2026-09-01**. Use `activate_leanix_skill(skill_name="fact-sheet-search")` or `get_workspace_context(include_meta_model=True, fact_sheet_types=[...])` to discover types instead.
 
 **Live discovery provides:**
 - Actual tag IDs (UUIDs) for your workspace
