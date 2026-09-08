@@ -38,7 +38,7 @@ The Run Script service validates every script at save time. Violations return HT
 | `TS2588` | Const reassignment | `const x = 1; x = 2;` |
 | `TS2693` | "Any used as a value" | Using a TypeScript type as a runtime value |
 | `TS8010` | TS-style annotations in JS | `function f(x: string)` in a `.js` file |
-| `TS1231` / `TS2307` | `import` fails | The runner uses `--frozen --no-remote`; any `import "..."` returns *Cannot find module* |
+| `TS1231` / `TS2307` | `import` fails | The runner blocks module imports and remote code fetches; any `import "..."` returns *Cannot find module* |
 
 ### Not enforced
 
@@ -47,7 +47,7 @@ The Run Script service validates every script at save time. Violations return HT
 
 ### Validator response shape
 
-- **HTTP 422** body: `{ line, column, message, code, hint? }`. The `code` field carries the lint-rule name (`require-await`, `no-main-parameters`, `exported-main-function`, …) or the TS error code (`TS2307`, `TS1308`, …). Useful for parsing failures programmatically.
+- **HTTP 422** body: `{ message, errors: [ { line, column, message, code, hint? } ] }` — the per-error fields (`line`, `column`, `message`, `code`, `hint?`) live inside each element of the `errors` array. The `code` field carries the lint-rule name (`require-await`, `no-main-parameters`, `exported-main-function`, …) or the TS error code (`TS2307`, `TS1308`, …). Useful for parsing failures programmatically.
 - **HTTP 400 BAD_REQUEST** when the script body is empty or whitespace-only.
 
 ### Inactive configurations skip validation
@@ -68,7 +68,7 @@ Limits enforced when the script runs (after save validation has passed). Hitting
 
 ### Sandbox flags
 
-The runner runs with **no raw network, file, env, subprocess, FFI, or import access**. Use `fetch` for HTTP — it goes through a host-controlled bridge, not raw networking. Standard JS built-ins (`Date`, `Math`, `JSON`, `Array`, `Object`, etc.) are available.
+The runner runs with **no raw network, file, env, subprocess, FFI, or import access**. Use `fetch` for HTTP — it is the only supported way to make network calls. Standard JS built-ins (`Date`, `Math`, `JSON`, `Array`, `Object`, etc.) are available.
 
 ### Globals deleted before the script runs
 
@@ -80,9 +80,11 @@ The runner runs with **no raw network, file, env, subprocess, FFI, or import acc
 
 ### Resource limits
 
-- **V8 heap memory** → failure code **`OUT_OF_MEMORY`**. Don't build unbounded arrays; paginate large queries (use the cursor pattern).
-- **Execution time** → failure code **`EXECUTION_TIMEOUT`**. Long pagination loops or many sequential mutations can hit this; batch where possible.
-- **Request size ≈ 2 MB** on the executor endpoint. Very large `data.factSheet` payloads or huge inline JSON in the script body can be rejected before the script even runs.
+Exact limits are enforced by the platform and can change over time, so don't hardcode assumptions. Keep scripts lean:
+
+- **Memory** — keep memory use modest and don't build unbounded arrays; paginate large queries (use the cursor pattern). Exhausting available memory aborts with failure code **`OUT_OF_MEMORY`**.
+- **Execution time** — scripts should execute quickly. Aim for roughly ~45 seconds or less (shorter is safer). Long pagination loops or many sequential mutations can run over the budget and abort with failure code **`EXECUTION_TIMEOUT`**; batch where possible and split large work across triggers.
+- **Payload size** — keep request and response payloads modest. Very large `data.factSheet` payloads or huge inline JSON in the script body can be rejected before the script even runs.
 
 ### Failure codes (in the result's `error` field)
 
@@ -95,7 +97,7 @@ The runner runs with **no raw network, file, env, subprocess, FFI, or import acc
 | `READ_ACCESS_DENIED` | File-system read attempted |
 | `WRITE_ACCESS_DENIED` | File-system write attempted |
 | `PERMISSION_DENIED` | Catch-all for other denied capabilities |
-| `OUT_OF_MEMORY` | V8 heap exhausted |
+| `OUT_OF_MEMORY` | Available memory exhausted |
 | `EXECUTION_TIMEOUT` | Script exceeded the time budget |
 | `CONFIGURATION_INACTIVE` | The execution configuration is not active |
 | `CONFIGURATION_NOT_FOUND` | The referenced configuration does not exist |
@@ -727,6 +729,88 @@ export async function main() {
 ## Template 7: Relation Attribute Update
 
 Use when: Updating attributes on relations (not the related fact sheet).
+
+> **Preferred: rev-less relation writes.** For creating, updating, or deleting relations (and relation attributes), use the relation-scoped `upsertRelation` / `deleteRelation` mutations. They are keyed by `(from, to, type)` and carry **no `rev`**, so no revision tracking / retry loop is needed and `REVISION_CLASH` is not possible. `upsertRelation` both creates (if absent) and updates (if present), and patches set relation attributes directly. Batch multiple writes into one aliased mutation (`r0:`, `r1:`, …). See the rev-less snippet below; the rev-based `updateFactSheet` patch form further down still works but is the older, clash-prone mechanism.
+>
+> **To-one caveat:** On a **to-one** (single-cardinality) relation, only one relation of that type may exist. Upserting a *different* `to` target can replace or conflict with the existing one — delete the old relation first, or upsert the single intended target.
+
+**Rev-less (recommended):**
+
+```javascript
+const GRAPHQL_URL = "https://INSTANCE.leanix.net/services/pathfinder/v1/graphql";
+
+async function gql(query, variables, token) {
+  const res = await fetch(GRAPHQL_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  const json = await res.json();
+  if (json?.errors) throw new Error(`GraphQL failed: ${JSON.stringify(json.errors)}`);
+  return json;
+}
+
+export async function main() {
+  const fsId = data?.factSheet?.id;
+  if (!fsId) return {};
+
+  const token = context?.secrets?.["default_automations_secret"]?.value?.bearerToken;
+  if (!token) throw new Error("ABORT AUTOMATION RUN - Missing bearerToken");
+
+  // Query relations + current attribute values (relation node id is NOT needed for upsert)
+  const query = `query ($id: ID!) {
+    factSheet(id: $id) {
+      id
+      ... on Application {
+        relApplicationToITComponent {
+          edges { node {
+            obsolescenceRiskStatus
+            factSheet { id ... on ITComponent { lifecycle { phases { phase startDate } } } }
+          } }
+        }
+      }
+    }
+  }`;
+
+  const json = await gql(query, { id: fsId }, token);
+  const fs = json?.data?.factSheet;
+  if (!fs) return {};
+
+  const relations = (fs.relApplicationToITComponent?.edges || []).map(e => e?.node).filter(Boolean);
+
+  // Build only the relations whose attribute actually changes (idempotency)
+  const ops = [];
+  for (const rel of relations) {
+    const newStatus = calculateStatus(rel);               // Your logic
+    if (newStatus === rel.obsolescenceRiskStatus) continue;
+    ops.push({ toId: rel.factSheet.id, newStatus });
+  }
+  if (!ops.length) return {};
+
+  // Batch every upsert into ONE aliased mutation — keyed by (from, to, type), no rev
+  const varDefs = [];
+  const fields = [];
+  const variables = { type: "relApplicationToITComponent" };
+  ops.forEach((o, i) => {
+    variables[`from${i}`] = { id: fsId };
+    variables[`to${i}`] = { id: o.toId };
+    variables[`patches${i}`] = [{ op: "replace", path: "/obsolescenceRiskStatus", value: o.newStatus }];
+    varDefs.push(`$from${i}: FactSheetIdentifierType!, $to${i}: FactSheetIdentifierType!, $patches${i}: [Patch!]`);
+    fields.push(`r${i}: upsertRelation(from: $from${i}, to: $to${i}, type: $type, patches: $patches${i}) { relation { id } }`);
+    // To remove instead: `r${i}: deleteRelation(from: $from${i}, to: $to${i}, type: $type) { relation { id } }`
+  });
+
+  await gql(`mutation ($type: RelationName!, ${varDefs.join(", ")}) { ${fields.join(" ")} }`, variables, token);
+  return {};
+}
+
+function calculateStatus(rel) {
+  // Your logic here
+  return "riskAccepted";
+}
+```
+
+**Rev-based `updateFactSheet` patch form (legacy — requires revision tracking):**
 
 **Note**: For multiple sequential mutations, use the retry pattern from Template 3 to handle revision clashes.
 
@@ -1460,7 +1544,7 @@ async function deployWithExistingScript() {
 
     console.log("Deployment successful!");
     console.log("Automation ID:", automation.id);
-    console.log("Automation URL:", `https://${INSTANCE}.leanix.net/WORKSPACE/automations/${automation.id}`);
+    console.log("Automation URL:", `https://${INSTANCE}.leanix.net/WORKSPACE/admin/automations/template/${automation.id}`);
     console.log("\nNote: Automation is INACTIVE. Enable after testing.");
 
   } catch (error) {
@@ -1521,7 +1605,7 @@ async function deploy() {
     console.log("Deployment successful!");
     console.log("Script ID:", result.script.id);
     console.log("Automation ID:", result.automation.id);
-    console.log("Automation URL:", `https://${INSTANCE}.leanix.net/WORKSPACE/automations/${result.automation.id}`);
+    console.log("Automation URL:", `https://${INSTANCE}.leanix.net/WORKSPACE/admin/automations/template/${result.automation.id}`);
     console.log("\nNote: Automation is INACTIVE. Enable after testing.");
 
   } catch (error) {
@@ -1545,7 +1629,7 @@ async function deployMultiTriggerAutomation(token, scriptId, ownerId) {
     factSheetType: "Application",
     trigger: {
       eventType: "SUBSCRIPTION_ADDITION",
-      subscriptionType: "RESPONSIBLE",
+      type: "RESPONSIBLE",
       roleId: "application-owner-role-id"
     },
     conditions: [],
@@ -1565,7 +1649,7 @@ async function deployMultiTriggerAutomation(token, scriptId, ownerId) {
     factSheetType: "Application",
     trigger: {
       eventType: "SUBSCRIPTION_REMOVAL",
-      subscriptionType: "RESPONSIBLE",
+      type: "RESPONSIBLE",
       roleId: "application-owner-role-id"
     },
     conditions: [],
@@ -1621,20 +1705,20 @@ async function deployMultiTriggerAutomation(token, scriptId, ownerId) {
   eventType: "FIELD_CHANGE",
   fieldName: "businessCriticality",
   fieldType: "SINGLE_SELECT",
-  fromValue: null,      // optional: "Empty"
-  toValue: "missionCritical"  // optional: specific value
+  from: { type: "ANYTHING" },              // or { type: "EMPTY" } / { type: "VALUE", value: "..." }
+  to: { type: "VALUE", value: "missionCritical" }
 }
 
 // Subscription Added/Removed
 {
   eventType: "SUBSCRIPTION_ADDITION",  // or "SUBSCRIPTION_REMOVAL"
-  subscriptionType: "RESPONSIBLE",  // or "ACCOUNTABLE", "OBSERVER"
-  roleId: "role-uuid"  // optional
+  type: "RESPONSIBLE",  // or "ACCOUNTABLE", "OBSERVER"
+  roleId: "role-uuid"
 }
 
 // Relation Added/Changed/Removed
 {
-  eventType: "RELATION_ADDITION",  // or "RELATION_CHANGE", "RELATION_REMOVAL"
+  eventType: "RELATION_ADDITION",  // or "RELATION_CHANGED", "RELATION_REMOVAL"
   relationType: "relApplicationToITComponent"
 }
 
@@ -1647,14 +1731,15 @@ async function deployMultiTriggerAutomation(token, scriptId, ownerId) {
 // Quality State Changed
 {
   eventType: "QUALITY_STATE_CHANGE_TO",
-  qualityState: "APPROVED"  // or "BROKEN", "DRAFT", "REJECTED"
+  qualityState: "APPROVED"  // or "BROKEN_QUALITY_SEAL", "DRAFT", "REJECTED"
 }
 
 // Lifecycle State Reached (checked nightly)
 {
   eventType: "LIFECYCLE_PHASE_CHANGE",
-  phase: "endOfLife",  // or "plan", "phaseIn", "active", "phaseOut"
-  daysOffset: -30  // optional: negative = before, positive = after
+  fieldName: "lifecycle",
+  lifecyclePhase: "endOfLife",  // or "plan", "phaseIn", "active", "phaseOut"
+  dateOffset: { active: true, quantity: 30, unit: "DAYS", timing: "BEFORE" }  // unit: DAYS|MONTHS|YEARS, timing: BEFORE|AFTER
 }
 
 // Completion Score Changed
@@ -1725,7 +1810,7 @@ Use when: You want to add a default tag to newly created fact sheets.
 
 **Configuration:**
 - Replace `{OWNER_ID}` with your account UUID
-- Replace `{TAG_UUID}` with the tag ID from MCP (`mcp__leanix__get_overview`)
+- Replace `{TAG_UUID}` with the tag ID from MCP (`mcp__leanix__get_overview` — deprecated but still working)
 
 ---
 
@@ -1800,7 +1885,7 @@ Use when: You want multiple actions to execute in sequence on a trigger.
         "type": "FACT_SHEET_CREATOR"
       },
       "subject": "Application Created",
-      "body": "Your application **{{factSheet.displayName}}** has been created and initialized.\n\n[View Application]({{factSheet.link}})",
+      "body": "Your application **{{{factsheet.displayName}}}** has been created and initialized.\n\n[View Application]({{{link.factsheet}}})",
       "startsAfter": "1_SET_FIELD",
       "onResolution": null
     }
@@ -1877,7 +1962,7 @@ Use when: You need approval before setting a field value, with different outcome
         "type": "FACT_SHEET_CREATOR"
       },
       "subject": "Retirement Request Rejected",
-      "body": "Your retirement request for **{{factSheet.displayName}}** was not approved.",
+      "body": "Your retirement request for **{{{factsheet.displayName}}}** was not approved.",
       "startsAfter": "3_SET_FIELD_REJECTED",
       "onResolution": null
     }
@@ -2019,7 +2104,7 @@ Use when: You want to automatically set quality state to "Approved" when a fact 
       "actionType": "SET_FIELD",
       "fieldType": "QUALITY_SEAL",
       "fieldName": "lxState",
-      "value": {"type": "VALUE", "value": "APPROVED"},
+      "value": "APPROVED",
       "startsAfter": null,
       "onResolution": null
     }
@@ -2055,7 +2140,7 @@ Use when: You want to automatically set quality state to "Approved" when a fact 
       "actionType": "SET_FIELD",
       "fieldType": "QUALITY_SEAL",
       "fieldName": "lxState",
-      "value": {"type": "VALUE", "value": "APPROVED"},
+      "value": "APPROVED",
       "startsAfter": "0_SET_FIELD",
       "onResolution": null
     }

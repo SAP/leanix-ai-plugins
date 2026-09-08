@@ -1,26 +1,31 @@
 ---
 name: automations-toolkit
-description: >-
-  Builds, debugs, and optimizes LeanIX automations using built-in actions
-  when possible and scripts only when needed. Covers trigger types, action
-  configuration, script templates, API deployment via MCP, error patterns,
-  and multi-automation strategies. Use when creating new automations, debugging
-  failing scripts, understanding automation triggers, deploying via API,
-  converting Azure Functions, syncing subscriptions between fact sheets,
-  managing tags based on relations, working with GraphQL mutations, auditing
-  workspace automations, or transferring automation ownership.
-argument-hint: "[goal or script to debug]"
+description: Build, debug, and create LeanIX Automations using built-in actions when possible and scripts only when needed. Use when creating new automations, debugging failing scripts, understanding triggers, deploying via API, converting Azure Functions, syncing subscriptions, managing tags based on relations, working with GraphQL mutations, auditing workspace automations, or transferring automation ownership. Covers trigger types, action configuration, script templates, error patterns, and multi-automation strategies.
 license: Apache-2.0
 compatibility: Requires LeanIX MCP server for API access (mcp__leanix__* tools)
 metadata:
   author: SAP LeanIX
-  version: "2.0"
+  version: "2.1.0"
 allowed-tools:
   - Read
   - Write
   - Edit
   - AskUserQuestion
-  - "mcp__leanix__*"
+  - mcp__leanix__list_automations
+  - mcp__leanix__get_automation
+  - mcp__leanix__create_automation
+  - mcp__leanix__update_automation
+  - mcp__leanix__delete_automation
+  - mcp__leanix__create_automation_script
+  - mcp__leanix__get_automation_script
+  - mcp__leanix__update_automation_script
+  - mcp__leanix__delete_automation_script
+  - mcp__leanix__get_automation_schema
+  - mcp__leanix__trigger_automation
+  - mcp__leanix__list_automation_runs
+  - mcp__leanix__get_automation_run
+  - mcp__leanix__get_overview
+  - mcp__leanix__search_users
 ---
 
 # LeanIX Automation Assistant
@@ -35,8 +40,6 @@ Comprehensive help for LeanIX Run Script automations: create, debug, design, opt
 - **No bearer tokens** need to be managed in the skill workflow
 - **No `.mcp.json` parsing** is required — MCP handles credentials automatically
 
-Before any LeanIX tool call: if only `mcp__leanix__authenticate` and `mcp__leanix__complete_authentication` are available, tell the user to run `/mcp` and authenticate the `leanix` server (browser opens automatically). Do NOT call `authenticate` yourself or suggest `claude mcp add` — the former returns a URL without triggering the browser flow (copy-paste UX), the latter would shadow the plugin's bundled server. If `/mcp` doesn't surface tools after auth, treat it as a plugin bug.
-
 ---
 
 ## Anti-Patterns (Don't Do This)
@@ -47,7 +50,7 @@ Before any LeanIX tool call: if only `mcp__leanix__authenticate` and `mcp__leani
 | `function main(){}; export { main }` (re-export) or `export default function main()` | The save-time validator requires direct export: `export function main()`, `export async function main()`, or `export const main = ...`. |
 | `async function main()` with no `await` inside | `require-await` lint rule blocks save. Drop `async` if no `await`. |
 | Top-level `await` outside `main()` | Rejected by TS1308. `await` only works inside the `async main()` body. |
-| `import` statements | Runner is `--frozen --no-remote`; rejected by TS2307. Only `fetch`, `data`, `context`, and standard JS built-ins are available. |
+| `import` statements | The runner blocks module imports and remote code fetches; rejected by TS2307. Only `fetch`, `data`, `context`, and standard JS built-ins are available. |
 | TS-style type annotations in `.js` (e.g. `function f(x: string)`) | Rejected by TS8010. |
 | Calling `Deno`, `setTimeout`, `setInterval`, `eval`, `Function`, `WebAssembly` | These globals are deleted at runtime. `ReferenceError` at execute time. |
 | Relying on `console.log` for visible output | Captured to `stdout` (returned in execution result), but NOT shown prominently in the Automations UI. For visible failure, `throw new Error(...)`. |
@@ -56,12 +59,12 @@ Before any LeanIX tool call: if only `mcp__leanix__authenticate` and `mcp__leani
 | No idempotency check | Infinite loop when automation re-triggers itself |
 | Using `name` for ITComponent matching | Use `displayName` to include Provider prefix |
 | Returning relations/subscriptions | Return object can't update these - use GraphQL |
-| Using `principal.id` from technical user token as ownerId | Shows "null null" in UI — use `set_owner_to_current_user=True` or a real human user's ID |
+| Using a technical/service identity as ownerId | Shows "null null" in UI — use `set_owner_to_current_user=True` (on `update_automation` only) or a real human user's ID |
 | Guessing API endpoints (e.g., `/scripts/{id}`, `/technicalUsers`) | Use MCP tools — they handle endpoints internally |
 | Setting `creatorId` on template update | Immutable; silently ignored (API returns 200 but no change) |
 | Investigating UUIDs before comparing with working automations | Slow; comparison-first debugging is faster |
 | Re-fetching templates without caching | Redundant MCP calls; cache `list_automations()` result in context for the session |
-| Building the secret key dynamically (`"default_" + "auto..."`) | Service auto-injection is a literal substring match on `"default_automations_secret"`. Dynamic construction means no match — `context.secrets` ends up empty. |
+| Building the secret key dynamically (`"default_" + "auto..."`) | Reference the secret key literally as `"default_automations_secret"` so it resolves. Dynamic construction means the secret is not attached — `context.secrets` ends up empty. |
 | `LIFECYCLE_PHASE_CHANGE` trigger combined with `IGNORE_TECHNICAL_USERS` condition | Service rejects: technical-user condition is not allowed on job-type triggers. |
 | Multiple actions with `startsAfter: null` (or zero such actions) | Exactly one first action is allowed per template. All others must chain via `startsAfter`. |
 | Inline `script: "..."` field on an action payload | Service strips it. Always create scripts separately via `POST /scripts` and reference by `scriptId`. |
@@ -73,7 +76,7 @@ Before any LeanIX tool call: if only `mcp__leanix__authenticate` and `mcp__leani
 ## Quick Reference
 
 **Trigger limitations:**
-- `Relation is removed` - Can't see removed relation (use reconciliation)
+- `Relation is removed` - The removed relation's other-end fact sheet id IS available at `data.metadata.triggerData.previousRelatedFactSheetId` (id only; best-effort/undocumented path — not part of the vendor's author API, may change). GraphQL-fetch by that id to read the removed fact sheet's fields. Reconciliation (or triggering on the target fact sheet) is optional, not required merely to identify the removed relation
 - `Lifecycle state reached` - Nightly only
 - `Completion score changed` - Fires on almost any edit
 
@@ -115,6 +118,7 @@ Load these files **only when needed** for specific workflow steps:
 | [`references/NAMING-CONVENTION.md`](references/NAMING-CONVENTION.md) | Analyzing/standardizing automations | Naming convention, categories |
 | [`references/WORKSPACE-ANALYSIS.md`](references/WORKSPACE-ANALYSIS.md) | Analyzing workspace automations | Full audit workflow, report format |
 | [`references/MANAGE-AUTOMATIONS.md`](references/MANAGE-AUTOMATIONS.md) | Managing existing automations | Transfer, enable/disable, troubleshoot, bulk update |
+| [`MCP-SETUP.md`](../../MCP-SETUP.md) | Setting up MCP connection | MCP server configuration |
 
 ---
 
@@ -156,7 +160,9 @@ Call `mcp__leanix__list_automations()`. This is a lightweight check that confirm
 
 **If the call succeeds:** Continue to the next step silently (no message needed).
 
-**If the tool is not found / not available:**
+**If `mcp__leanix__list_automations` is not directly available (PTD may be enabled):** Before concluding the toolset is missing, try the PTD proxy path — `call_tool(tool_name='list_automations', arguments={})`, or `search_mcp_tools('automations')` then `call_tool`. If that succeeds, PTD is working; continue silently.
+
+**If both the direct call and the PTD proxy path fail:**
 
 The `automations` toolset is **optional and hidden by default**. Display this message to the user:
 
@@ -211,11 +217,11 @@ This returns the live trigger, condition, and action type reference from the API
 MCP handles authentication and workspace connection automatically. No credential extraction or token exchange needed.
 
 **Verify connection:**
-1. Call `mcp__leanix__get_overview()` to confirm workspace access and get basic statistics
+1. Call `mcp__leanix__get_overview()` to confirm workspace access and get basic statistics (deprecated-but-working — still directly callable; may not appear in tool-discovery catalogs)
 
 **Get owner ID (when needed for deployment):**
 - Use `mcp__leanix__search_users(email=...)` to find a specific user's UUID
-- Or use `set_owner_to_current_user=True` on `create_automation` / `update_automation` to assign the authenticated user as owner
+- Or use `set_owner_to_current_user=True` on `update_automation` (this flag exists ONLY on `update_automation`) to assign the authenticated user as owner. For `create_automation`, omit `owner_id` (it defaults to the authenticated user) or pass an explicit `owner_id` UUID
 
 **Display:** `Connected to LeanIX workspace - Ready for automatic deployment.`
 
@@ -295,7 +301,7 @@ After configuring → Select trigger → **Step 7.5** (Deploy)
 | **Initialize new FS** | 1 | Fact sheet is created |
 | **Validate and block** | 1-2 | Field changed OR Completion score changed |
 
-**Key insight:** "Relation is removed" trigger on source FS can't see the removed relation. Put cleanup on target FS.
+**Key insight:** For the "Relation is removed" trigger, the removed relation's other-end fact sheet id IS delivered at `data.metadata.triggerData.previousRelatedFactSheetId` (note `data.trigger` itself does not exist — the trigger context lives under `data.metadata.triggerData`). Only the id string is provided, not the removed fact sheet's fields, so GraphQL-fetch by that id to read them. This is a best-effort/undocumented path (discoverable by inspecting the injected `data`; it may change). Reconciliation (or triggering on the target fact sheet) is a robust option for reading full fields but is not required merely to identify the removed relation.
 
 See [LeanIX Model](references/LEANIX-MODEL.md) for complete trigger reference.
 
@@ -352,9 +358,9 @@ Before deploying, verify ALL items:
 | # | Check | How to Verify |
 |---|-------|---------------|
 | 1 | ownerId is a **real human user** | Use `mcp__leanix__search_users(email=...)` and verify display name |
-| 2 | ownerId is NOT from technical user JWT | Verify it resolves to a human name (not "? ?" or "null null") |
+| 2 | ownerId is NOT a technical/service identity | Verify it resolves to a human name (not "? ?" or "null null") |
 | 3 | Script endpoint is correct | Create: `mcp__leanix__create_automation_script`. Read: `mcp__leanix__get_automation_script` |
-| 4 | Using PUT not PATCH for updates | MCP tools handle this internally via `update_automation` |
+| 4 | For updates, PATCH `/templates/{id}` only toggles `active` | PATCH accepts `{ "active": boolean }` only; use PUT with the full body for any other change (MCP `update_automation` handles this internally) |
 | 5 | No `creatorId` in request body | Immutable field, silently ignored — omit to avoid confusion |
 | 6 | `active: false` for initial deploy | Test before enabling |
 | 7 | All required action fields present | `id`, `actionType`, `startsAfter`, `onResolution` |
@@ -387,7 +393,9 @@ After deployment, verify the automation works:
    - Verify trigger and conditions are configured correctly
 
 2. **Test if possible**
-   - If safe to test: Trigger the automation manually on a test fact sheet
+   - If safe to test: trigger the automation manually on a test fact sheet with `mcp__leanix__trigger_automation(template_id, entity_ids=[…])`. **Confirm first** — it is side-effecting and NOT idempotent (re-running re-runs the actions), so state what will run on how many fact sheets and get an OK. Also confirm the automation is `active` (an inactive one returns 202 but produces no runs).
+   - The 202 means **QUEUED, not executed** — do NOT report success off it. Poll `mcp__leanix__list_automation_runs(automation_ids=[id], fact_sheet_ids=[submitted], run_after=[just before trigger])` with backoff until the matched run count is stable across two consecutive polls, then `mcp__leanix__get_automation_run(run_id)` for per-action detail. Report per fact sheet by NAME.
+   - **A submitted fact sheet may produce no run** for two silent reasons: automation inactive, or condition not met (e.g. `WITH_TAGS`). A manual run **skips the trigger event entirely** — you do NOT need to reproduce the triggering change — so it jumps straight to conditions + actions. Nothing stuck ever shows as `IN_PROGRESS`; zero rows in every state means it never ran, not that it's queued.
    - Verify expected outcome matches design
 
 3. **Review for edge cases**
@@ -416,6 +424,12 @@ Offer:
 
 Request: script code, trigger config, observed behavior, error messages.
 
+**If the automation is already deployed, pull its run history first** — it's the fastest source of truth for "what actually happened":
+- `mcp__leanix__list_automation_runs(automation_ids=[id], states=["FAILED"])` — find failed runs
+- `mcp__leanix__get_automation_run(run_id)` — per-action outcomes and the error message on the failing action
+
+A deployed automation with an `active: true` status but **zero runs** on fact sheets that should have triggered it points at a trigger/condition mismatch rather than a script bug.
+
 ### Step 2: Automated Diagnostic Checks
 
 | Check | Issue | Fix |
@@ -423,7 +437,7 @@ Request: script code, trigger config, observed behavior, error messages.
 | Export form | `main` not exported, re-export, default export | Use `export function main()` or `export async function main()` |
 | Parameters on `main` | `function main(data)` | Drop the parameter — injected as globals |
 | `async` without `await` | `async main` with no `await` inside | Drop `async`, or add an `await` |
-| Imports | Any `import` statement | Remove — runner is `--frozen --no-remote` |
+| Imports | Any `import` statement | Remove — the runner blocks module imports and remote code fetches |
 | Inline fragments | Relations without type wrapper | Wrap in `... on Application { }` |
 | Revision tracking | No `currentRev` updates | Track after each mutation |
 | Idempotency | No early return | Add `if (newValue === currentValue) return {}` |
@@ -495,7 +509,7 @@ See [LeanIX Model](references/LEANIX-MODEL.md) for detailed capabilities.
 
 Audit existing automations, update descriptions, and standardize naming conventions.
 
-**Speed:** Load `references/WORKSPACE-ANALYSIS.md` + `references/NAMING-CONVENTION.md` + call `mcp__leanix__get_overview()` + `mcp__leanix__list_automations()` all in **one parallel message** to avoid sequential round-trips.
+**Speed:** Load `references/WORKSPACE-ANALYSIS.md` + `references/NAMING-CONVENTION.md` + call `mcp__leanix__get_overview()` (deprecated-but-working — still directly callable; may not appear in tool-discovery catalogs) + `mcp__leanix__list_automations()` all in **one parallel message** to avoid sequential round-trips.
 
 See [Workspace Analysis](references/WORKSPACE-ANALYSIS.md) for the full workflow.
 

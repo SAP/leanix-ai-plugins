@@ -1,8 +1,8 @@
 # LeanIX Automations API Reference
 
-> **Schema Source**: Official OpenAPI spec at `https://{INSTANCE}.leanix.net/services/automations/v1/api-json`
+> **Schema Source**: Use `mcp__leanix__get_automation_schema()` to retrieve the current Automations DTO schema.
 >
-> **Last Verified**: 2026-01-27 | **Spec Version**: v1 | **Status**: Current
+> **Last Verified**: 2026-07-30 | **Spec Version**: v1 | **Status**: Current
 
 > **IMPORTANT: Use MCP tools for all API interactions.** Do NOT use curl or shell commands.
 > The curl examples below are for **documentation purposes only** — they show the raw REST API structure.
@@ -15,54 +15,128 @@
 > - `mcp__leanix__create_automation_script(name, code)` — POST /scripts
 > - `mcp__leanix__get_automation_script(script_id)` — GET script code
 > - `mcp__leanix__update_automation_script(script_id, code)` — PUT /scripts/{id}
-> - `mcp__leanix__get_automation_schema()` — GET /api-json schema reference
+> - `mcp__leanix__get_automation_schema()` — get the Automations DTO schema reference
+> - `mcp__leanix__trigger_automation(template_id, entity_ids)` — manually run an automation against 1-100 fact sheets (POST; returns 202 QUEUED, does NOT execute synchronously)
+> - `mcp__leanix__list_automation_runs(...)` — execution log; filter by automation_ids, fact_sheet_ids, states, run_after/before; paginated (limit/offset)
+> - `mcp__leanix__get_automation_run(run_id)` — one run's per-action outcomes (done/waiting/failed/skipped/queued) + timing
 > - `mcp__leanix__search_users(email=...)` — User lookup
+
+## Running Automations On Demand (`trigger_automation` → `list_automation_runs` → `get_automation_run`)
+
+These three tools cover manual execution and run observability. **A 202 from `trigger_automation` means QUEUED/accepted — NOT executed.** Never report success off the 202; verify via `list_automation_runs`.
+
+**Workflow:**
+1. **Resolve names → ids.** `list_automations` for the automation, a fact-sheet search for entities. Never ask the user for a UUID.
+2. **Confirm the automation is `active`.** An INACTIVE automation returns 202 but produces zero runs, no error.
+3. **Confirm before triggering.** Side-effecting and NOT idempotent — re-running re-runs the actions. State what runs on how many fact sheets and get an OK. Never blind-retry on timeout; verify with `list_automation_runs` first.
+4. **Trigger, then poll** `list_automation_runs(automation_ids=[id], fact_sheet_ids=[submitted], run_after=[just before trigger])` with backoff until the matched count is **stable across two consecutive polls**. Report per fact sheet by NAME.
+5. **Explain missing runs** (see below).
+
+**Why a submitted fact sheet may produce NO run** (silent — the backend records no skip reason):
+- **Automation inactive** — rule this out first.
+- **Condition not met** — e.g. `WITH_TAGS` unsatisfied. Manual runs bypass the trigger *event*, but conditions are still evaluated. Confirm via `get_automation` vs the fact sheet's state.
+
+> A manual run **skips the trigger entirely** — you do NOT need to reproduce the triggering change (e.g. you can run a `FIELD_CHANGE`-on-`lifecycle` automation without actually changing the lifecycle). It jumps straight to conditions + actions.
+
+> **Trigger-type sensitivity (empirically observed 2026-08-05, n=3 trigger types):** manual triggering ran automations with `TAG_ADDITION` and `QUALITY_STATE_CHANGE_TO` triggers (SUCCESS), but a `FIELD_CHANGE`-on-`lifecycle` automation produced **no run** across 3 fact sheets — including one with a prior SUCCESS run and satisfied `WITH_TAGS`, so neither fact sheet nor conditions explain it. Untested: RELATION_*, SUBSCRIPTION_*, COMPLETION_SCORE_CHANGE, LIFECYCLE_PHASE_CHANGE. Practical rule: `trigger_automation` is reliable for tag/state-driven automations; for a `FIELD_CHANGE` automation, if a manual trigger yields no run despite active status and met conditions, fall back to editing the fact sheet to fire it naturally.
+
+> `(submitted − ran)` is only a candidate skip set AFTER the count is stable — before that it is processing lag. Nothing stuck shows as `IN_PROGRESS`; if you see zero rows in every state, it is not queued, it never ran.
 
 ---
 
-## Discovering Service Specs
+## Public Endpoints Scripts Can Call
 
-When working with any LeanIX service beyond `automations` (e.g., To-Do, Webhooks, MTM), fetch the OpenAPI spec directly instead of guessing endpoints or web-searching the docs site.
+Scripts run with `fetch()` and can call these documented LeanIX product APIs directly (using the bearer token from the automations secret):
 
-### URL Pattern
+| Service | Endpoint | Purpose |
+|---|---|---|
+| Pathfinder GraphQL | `/services/pathfinder/v1/graphql` | Read/write fact sheet data, relations, subscriptions |
+| To-Do API | `/services/todo/v1/to-do` | Create action items / approvals (auto-emails the assignee) |
+| Webhooks | `/services/webhooks/v1/...` | Event subscriptions and deliveries |
+
+For fact sheet query and mutation patterns, use GraphQL schema introspection or the query patterns in `LEANIX-MODEL.md`.
+
+### Resolving a service's URL slug
+
+The LeanIX display name of a service is **not** always the `{name}` segment used in its URL. Endpoints follow the pattern:
 
 ```
-https://{INSTANCE}.leanix.net/services/{service-name}/v1/openapi.json
+https://{INSTANCE}.leanix.net/services/{name}/v.../...
 ```
 
-The `automations` service is the only known exception — its spec is at `/api-json` instead of `/openapi.json`. Most others (`mtm`, `todo`, `webhooks`) are served publicly with no auth required, so a plain `WebFetch` works.
+The `{name}` slug can differ from the display name (e.g. **Catalog** is served at `reference-data`, **Self-Built Software Discovery** at `technology-discovery`, **SAP Discovery** at `discovery-sap`).
 
-### Verified Service Inventory
+To find the real slug for any service, open the **OpenAPI Explorer** in the product UI:
 
-Last sweep: 2026-05-21 on `demo-us.leanix.net`.
+```
+https://{INSTANCE}.leanix.net/openapi-explorer?urls.primaryName={DisplayName}
+```
 
-| Service | Spec URL | Public? | Purpose |
-|---|---|---|---|
-| `mtm` | `/services/mtm/v1/openapi.json` | yes (200) | Multi-tenant: accounts, workspaces, users, IDPs |
-| `todo` | `/services/todo/v1/openapi.json` | yes (200) | Action items, approvals, query by externalId/factSheet |
-| `webhooks` | `/services/webhooks/v1/openapi.json` | yes (200) | Event subscriptions, deliveries |
-| `automations` | `/services/automations/v1/api-json` | auth-gated (401) | Trigger/action/template DTOs (also covered by `mcp__leanix__get_automation_schema`) |
-| `mcp-server` | `/services/mcp-server/v1/openapi.json` | auth-gated (401) | — |
-| `sso` | `/services/sso/v1/openapi.json` | auth-gated (401) | — |
-| `pathfinder` | n/a | n/a | GraphQL-only — use schema introspection or `LEANIX-MODEL.md` query patterns |
+This is a user-accessible product page. Read the spec URL it loads — the `{name}` segment of that URL is the slug. The OpenAPI Explorer is the source of truth if a slug or version differs from the table below.
 
-> Note: `todos` (plural) and `integration-api` are **not** valid services — both appeared in stale internal docs. Canonical name is `todo` (singular). `integration-api` returned 404 on every instance checked.
+### Service slug reference
 
-### Procedure
+> Slugs and versions can change over time; the [OpenAPI Explorer](#resolving-a-services-url-slug) in your workspace is the authoritative source of truth. The mappings below were captured 2026-07-30.
 
-1. **Need an endpoint shape?** WebFetch the spec first.
-2. **Need a request/response schema?** Read it from the OpenAPI components, don't infer from examples.
-3. **Authoring a script that calls a service?** Confirm the URL exists in this table. If not, sweep the candidate path with WebFetch before pasting any URL into a script.
+Non-obvious mappings to note:
+- **Catalog** → `reference-data` (shares the slug with **Reference Data**)
+- **Self-Built Software Discovery** → `technology-discovery`
+- **SAP Discovery** → `discovery-sap` (distinct from **Discovery SAP Extension** → `discovery-sap-extension`)
+- **Discovery Linking V2** uses `/v2/` (slug `discovery-linking`)
+- **Documents V1** and **V2** share the slug `documents` (different version segments)
+- **Import Export** exposes 4 sub-APIs (Exports, Imports, OData, Onboarding) all under the single slug `import-export`
 
-This pattern was added after a session burned multiple rounds web-searching for the To-Do API GET shape when the spec was a single WebFetch away.
+| Display name | URL slug (`{name}`) | Spec path |
+|---|---|---|
+| AI Inventory Builder | `ai-inventory-builder` | `/services/ai-inventory-builder/v1/docs` |
+| Apptio Connector | `apptio-connector` | `/services/apptio-connector/v1/api-docs/swagger.json` |
+| Automations | `automations` | `/services/automations/v1/api-json` |
+| Calculations | `calculations` | `/services/calculations/v2/openapi.json` |
+| Catalog | `reference-data` | `/services/reference-data/v1/openapi-catalog.json` |
+| Data Products Discovery | `data-products-discovery` | `/services/data-products-discovery/v1/api-docs` |
+| Discovery AI Agents | `discovery-ai-agents` | `/services/discovery-ai-agents/v1/openapi.json` |
+| Discovery Linking V2 | `discovery-linking` | `/services/discovery-linking/v2/openapi.json` |
+| Discovery SAP Extension | `discovery-sap-extension` | `/services/discovery-sap-extension/v1/assets/swagger.json` |
+| Discovery SaaS | `discovery-saas` | `/services/discovery-saas/v1/openapi.json` |
+| Documents V1 | `documents` | `/services/documents/v1/apiDocs/v1` |
+| Documents V2 | `documents` | `/services/documents/v2/apiDocs/v2` |
+| Impacts | `impacts` | `/services/impacts/v1/openapi.json` |
+| Import Export — Exports | `import-export` | `/services/import-export/v1/exports/api-docs` |
+| Import Export — Imports | `import-export` | `/services/import-export/v1/imports/api-docs` |
+| Import Export — OData | `import-export` | `/services/import-export/v1/odata/api-docs` |
+| Import Export — Onboarding | `import-export` | `/services/import-export/v1/onboarding/api-docs` |
+| Integration API | `integration-api` | `/services/integration-api/v1/api-docs/swagger.json` |
+| Integration Collibra | `integration-collibra` | `/services/integration-collibra/v1/openapi.json` |
+| Integration ServiceNow | `integration-servicenow` | `/services/integration-servicenow/v2/api-docs/swagger.json` |
+| Integration Signavio | `integration-signavio` | `/services/integration-signavio/v3/openapi.json` |
+| Inventory Data Quality | `inventory-data-quality` | `/services/inventory-data-quality/v1/api-docs` |
+| MTM | `mtm` | `/services/mtm/v1/openapi.json` |
+| Managed Code Execution | `managed-code-execution` | `/services/managed-code-execution/v1/openapi` |
+| Metrics | `metrics` | `/services/metrics/v2/openapi.json` |
+| Navigation | `navigation` | `/services/navigation/v1/docs` |
+| Notifications | `notifications` | `/services/notifications/v1/openapi.json` |
+| Pathfinder | `pathfinder` | `/services/pathfinder/v1/api-docs/swagger.json` |
+| Poll | `poll` | `/services/poll/v2/api-docs/swagger.json` |
+| Recon | `recon` | `/services/recon/v1/openapi.json` |
+| Reference Data | `reference-data` | `/services/reference-data/v1/openapi.json` |
+| Reports | `reports` | `/services/reports/v1/docs/openapi.json` |
+| SAP Discovery | `discovery-sap` | `/services/discovery-sap/v1/api-json` |
+| Self-Built Software Discovery | `technology-discovery` | `/services/technology-discovery/v1/data-aggregator-bff/unified/openapi` |
+| Storage | `storage` | `/services/storage/v1/swagger/swagger.json` |
+| Survey | `survey` | `/services/survey/v1/openapi` |
+| Synclog | `synclog` | `/services/synclog/v1/api-docs/swagger.json` |
+| To-Do | `todo` | `/services/todo/v1/openapi.json` |
+| Transformations | `transformations` | `/services/transformations/v1/docs` |
+| Webhooks | `webhooks` | `/services/webhooks/v1/openapi.json` |
 
 ---
 
 ## Table of Contents
 
-- [Discovering Service Specs](#discovering-service-specs)
+- [Public Endpoints Scripts Can Call](#public-endpoints-scripts-can-call)
+  - [Resolving a service's URL slug](#resolving-a-services-url-slug)
+  - [Service slug reference](#service-slug-reference)
 - [API Endpoints](#api-endpoints)
-- [Extracting Credentials from MCP Configuration](#extracting-credentials-from-mcp-configuration)
 - [Authentication & Permissions](#authentication--permissions)
 - [Ownership Management](#ownership-management)
 - [Scripts API](#scripts-api)
@@ -98,79 +172,9 @@ All endpoints require a bearer token:
 Authorization: Bearer {BEARER_TOKEN}
 ```
 
-#### OAuth Token Exchange
+**MCP tools handle authentication automatically** — token exchange and API calls are managed for you, so no manual token handling is needed when working through the MCP tools.
 
-The `LXT_xxx` API token from MCP config must be exchanged for a bearer token. **MCP tools handle this automatically** — no manual exchange needed.
-
-**Raw API endpoint (for reference only — do NOT use directly):**
-```
-POST https://{INSTANCE}.leanix.net/services/mtm/v1/oauth2/token
-Content-Type: application/x-www-form-urlencoded
-grant_type=client_credentials&client_id=apitoken&client_secret={LXT_TOKEN}
-```
-
-**Response:**
-```json
-{
-  "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer",
-  "expires_in": 3599,
-  "scope": "read write"
-}
-```
-
-**The `access_token` is a JWT containing:**
-- `principal.id` - Account ID of the token holder (see WARNING below)
-- `principal.permission.workspaceName` - Workspace name (for UI URLs)
-- `exp` - Expiration timestamp
-
-> **WARNING: `principal.id` and ownerId**: If the token was issued from a **technical user / API token**, `principal.id` is the technical user's UUID — **NOT a valid ownerId**. Using it as `ownerId` causes the UI to show "null null" for the automation owner. Always use a real human user's account ID. See [Ownership Management](#ownership-management) below.
-
-> **Important**: Always exchange the `LXT_` token before API calls. The Automations API requires a bearer token, not the raw API token.
-
----
-
-## Extracting Credentials from MCP Configuration
-
-When LeanIX MCP is configured, credentials can be extracted from `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "leanix": {
-      "type": "http",
-      "url": "https://your-instance.leanix.net/services/mcp-server/v1/mcp",
-      "headers": {
-        "Authorization": "Token LXT_xxx..."
-      }
-    }
-  }
-}
-```
-
-### Extraction Pattern
-
-| Value | How to Extract |
-|-------|----------------|
-| **Instance** | Parse hostname from `url`: `https://(.+).leanix.net/...` → `your-instance` |
-| **Token** | From `headers.Authorization`, strip "Token " prefix → `LXT_xxx...` |
-| **Base URLs** | Construct from instance: `https://{INSTANCE}.leanix.net/services/...` |
-
-### Constructed URLs
-
-```javascript
-const INSTANCE = "your-instance";  // extracted from MCP config
-const GRAPHQL_URL = `https://${INSTANCE}.leanix.net/services/pathfinder/v1/graphql`;
-const AUTOMATIONS_URL = `https://${INSTANCE}.leanix.net/services/automations/v1`;
-```
-
-### Getting Owner ID
-
-The `ownerId` required for automation templates can be obtained via MCP:
-
-1. Call `mcp__leanix__get_overview`
-2. Look in the subscriptions facet for the current user's account ID
-3. Or query GraphQL for the authenticated user's subscriptions
+> **WARNING: ownerId**: When a token is issued from a **technical user / API token**, the token holder's ID is **NOT a valid ownerId**. Using it as `ownerId` causes the UI to show "null null" for the automation owner. Always use a real human user's account ID. See [Ownership Management](#ownership-management) below.
 
 ---
 
@@ -398,7 +402,7 @@ mcp__leanix__get_automation_script(script_id="abc-123-def-456")
 | GET | `/templates/{id}` | Get single template |
 | PUT | `/templates/{id}` | Update template |
 | DELETE | `/templates/{id}` | Delete template (204) |
-| PATCH | `/templates/{id}` | **NOT SUPPORTED** - use PUT with full body |
+| PATCH | `/templates/{id}` | Toggles the `active` flag ONLY (body `{ "active": boolean }`); use PUT with the full body for all other changes |
 | GET | `/instances` | Get all instances |
 | GET | `/instances/quota` | Get quota usage |
 
@@ -764,6 +768,7 @@ Valid states: `APPROVED`, `BROKEN_QUALITY_SEAL`, `DRAFT`, `REJECTED`
 | `REMOVE_TAG` | `tagId` |
 | `SET_FIELD` | `fieldType`, `fieldName`, `value` |
 | `SEND_USER_WEBHOOK` | `tag` (2-256 chars) |
+| `SEND_EMAIL` | *(deprecated — superseded by SEND_EMAIL_V2; still deployable)* |
 | `SEND_EMAIL_V2` | `recipients`, `subject`, `body` |
 | `SET_FACT_SHEET_FIELD_SCRIPT` | `scriptId` |
 
@@ -1107,11 +1112,11 @@ console.log("Automation ID:", template.id);
 console.log("Automation URL:", `https://INSTANCE.leanix.net/WORKSPACE/admin/automations/template/${template.id}`);
 ```
 
-> **Automation edit URL format**: `https://{INSTANCE}.leanix.net/{WORKSPACE}/admin/automations/template/{TEMPLATE_ID}`. The `/admin/` path segment and `/template/` are required. `{WORKSPACE}` is the workspace name from the JWT payload at `principal.permission.workspaceName`.
+> **Automation edit URL format**: the canonical URL is `https://{INSTANCE}.leanix.net/{WORKSPACE}/admin/automations/template/{TEMPLATE_ID}`. The old `/edit/{TEMPLATE_ID}` still works but only as a legacy redirect alias. The `/admin/` path segment is required; `/edit/` is not canonical. `{WORKSPACE}` is your workspace name.
 
 ### Step 3: Enable Automation (After Testing)
 
-> **Note:** PATCH is NOT supported. Use PUT with the full template body.
+> **Note:** PATCH toggles the `active` flag ONLY (body `{ "active": boolean }`). For all other changes, use PUT with the full template body.
 
 ```javascript
 // First, GET the current template
@@ -1220,6 +1225,10 @@ When generating script code for `mcp__leanix__create_automation_script`, use pla
 
 #### REVISION_CLASH Retry on Sequential Mutations
 
+> **Prefer rev-less relation writes to avoid this entirely.** For creating, updating, or deleting **relations** (and relation attributes), use the relation-scoped `upsertRelation` / `deleteRelation` mutations. They are keyed by `(from, to, type)` and carry **no `rev`**, so `REVISION_CLASH` cannot occur and no `getCurrentRev` + retry loop is needed. `upsertRelation` both creates (if absent) and updates (if present); patches set relation attributes directly. Batch multiple writes into one aliased mutation (`r0:`, `r1:`, …). See TEMPLATES.md → Template 7 for the full pattern. **To-one caveat:** on a single-cardinality relation, only one relation of that type may exist, so upserting a different `to` target can replace/conflict with the existing one — delete the old relation first, or upsert the single intended target.
+>
+> The rev-based `updateFactSheet` retry below remains the correct approach for **non-relation field writes** (e.g. `description`, custom fields) on other fact sheets.
+
 When a script performs multiple mutations on the same fact sheet (or concurrent automations / system updates change a fact sheet between mutations), GraphQL returns:
 
 ```
@@ -1266,7 +1275,7 @@ for (const item of items) {
 1. Fetch all templates with `mcp__leanix__list_automations()` and cache the result for the session.
 2. Find a working automation with similar configuration (same fact sheet type, similar trigger).
 3. Diff broken vs working — focus on `ownerId`, `active`, trigger config, conditions, actions.
-4. Only investigate UUIDs / JWT payloads if the comparison doesn't reveal the issue.
+4. Only investigate UUIDs if the comparison doesn't reveal the issue.
 
 Most automation failures stem from configuration differences (wrong `ownerId`, inactive state, misconfigured trigger). Comparing against a working automation surfaces these in seconds.
 
@@ -1289,7 +1298,7 @@ The action accepts only a `tag` string (2–256 chars) and emits a fixed payload
 #### Run Script `data` Object Constraints
 
 - **`data.factSheet.subscriptions` is always empty.** The runtime does not populate this array. To read subscribers, query GraphQL: `factSheet(id: $id) { subscriptions { edges { node { id type user { id email displayName } roles { id name } } } } }`.
-- **`data.trigger` is not available.** Run scripts only receive `data.factSheet`. Scripts cannot determine *what changed* — design logic around current state. If you need to filter on a specific change, use automation conditions instead.
+- **`data.trigger` is not available.** The trigger context lives under `data.metadata.triggerData`, not `data.trigger`. For relation triggers, the related fact sheet id IS delivered there (`previousRelatedFactSheetId` for the removed end, `currentRelatedFactSheetId` for the added end, plus `relationId`/`relationType`) — id only, best-effort/undocumented; GraphQL-fetch by that id to read its fields. For field-change triggers there is no delivered before/after value, so to filter on a specific field change use automation conditions and design logic around current state via `data.factSheet.{fieldName}`.
 
 ### Workspace Data Queries
 
@@ -1328,24 +1337,19 @@ These rules are enforced by the Automations service when accepting POST/PUT/DELE
 
 Requests exceeding these limits are rejected with **HTTP 400** and a validation error.
 
-### Secret auto-detection
+### Secret reference
 
-The service injects `{ secrets: [{ key: "default_automations_secret" }] }` into the MCE execution context **only if the script body contains the literal substring `"default_automations_secret"`**. It is a plain string-match on the source code.
+To use the automations bearer token in a script, reference the secret key as a **literal string** in the source:
 
 ```javascript
-// WORKS — literal substring present, secret injected
 const token = context?.secrets?.["default_automations_secret"]?.value?.bearerToken;
-
-// FAILS — string is built dynamically, no substring match, no secret injected
-const k = "default_" + "automations_secret";
-const token = context?.secrets?.[k]?.value?.bearerToken;  // context.secrets is empty
 ```
 
-Always reference the secret key as a literal string in the source. The same applies to indirect references via variables, helper functions, or computed property names — if the literal substring is not present, no secret is injected.
+Always reference the secret key literally. Do not build the key dynamically (e.g. via string concatenation, variables, helper functions, or computed property names) — reference the literal `"default_automations_secret"` string directly so the secret is available at runtime.
 
-### Hardcoded language and capability
+### Hardcoded language
 
-Scripts created via `POST /scripts` are **always** stored as `language: "JAVASCRIPT"` and `capability: "AUTOMATIONS"`. Any other value in the request body is silently overridden.
+Scripts created via `POST /scripts` are **always** stored as JavaScript. Any other language value in the request body is silently overridden.
 
 ### Trigger + condition rules
 
@@ -1375,9 +1379,9 @@ Scripts created via `POST /scripts` are **always** stored as `language: "JAVASCR
 
 Single-reference deletes succeed normally. With `force=true`, all referencing templates have the script removed (and may break if no replacement is provided in the same request).
 
-### MCE call gateway timeout
+### Keep scripts fast and lightweight
 
-The service forwards script execution requests to MCE with a **15,000 ms** gateway timeout. Long-running scripts that breach this fail at the gateway with `GATEWAY_TIMEOUT` even before MCE's own `EXECUTION_TIMEOUT` fires. Keep scripts short; paginate large work across multiple triggers if needed.
+Script execution is bounded by an execution time limit, so long-running scripts fail before completing. Aim to have scripts finish quickly — roughly 45 seconds or less, and shorter is safer. Keep memory use and request/response payloads modest. If you have a large amount of work to do, paginate it across multiple triggers rather than doing it all in one run.
 
 ### Compensation rollback on creation failure
 

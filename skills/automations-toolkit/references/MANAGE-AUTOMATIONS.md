@@ -87,14 +87,14 @@ Ask using `AskUserQuestion`:
 - Owner shows "null null" in UI → ownerId is a technical user; transfer to real user
 - User lookup returns "? ?" → stop; this UUID doesn't resolve to a valid user
 - Automation never fires → check trigger type and factSheetType match
-- Automation fires but no effect → check script for `console.log()` (silent failure)
+- Automation fires but no effect → the script likely returned `{}` or hit an unthrown error; `console.log`/`console.error` are captured to `stdout`/`stderr` (not shown in the UI), so add `throw new Error(...)` to surface failures
 
 ---
 
 ## Sub-Workflow: Bulk Update
 
 1. **Select templates** — By name pattern, trigger type, factSheetType, or active status
-2. **Select field to update** — `name`, `description`, `ownerId`, `active`, `factSheetType`
+2. **Select field to update** — `name`, `description`, `ownerId`, `active` (these have direct `update_automation` params; changing `factSheetType` requires a full `template_json` replacement)
 3. **Preview changes** — Show before/after for each template
 4. **Confirm** with user before executing
 5. **Execute** — For each template: `mcp__leanix__update_automation(template_id=ID, name=..., description=..., active=...)`
