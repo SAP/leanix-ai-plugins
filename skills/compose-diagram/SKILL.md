@@ -35,6 +35,16 @@ You build and edit LeanIX diagrams by composing tool calls — never by writing 
 
 **"Canvas" means "diagram."** Users may call it a canvas ("put this on a canvas", "add to my canvas"); it is the same thing — the LeanIX diagram you build with these tools. Treat the two terms as interchangeable throughout this skill.
 
+## CRITICAL: API Access
+
+**All LeanIX API calls use MCP tools.** No shell commands, no token exchange, no curl.
+
+- **Authentication** is handled internally by the MCP server
+- **No bearer tokens** need to be managed in the skill workflow
+- **No `.mcp.json` parsing** is required — MCP handles credentials automatically
+
+Before any LeanIX tool call: if only `mcp__leanix__authenticate` and `mcp__leanix__complete_authentication` are available, tell the user to run `/mcp` and authenticate the `leanix` server (browser opens automatically). Do NOT call `authenticate` yourself or suggest `claude mcp add` — the former returns a URL without triggering the browser flow (copy-paste UX), the latter would shadow the plugin's bundled server. If `/mcp` doesn't surface tools after auth, treat it as a plugin bug.
+
 ## Golden rules
 
 These govern every request. The rest of this skill elaborates on them.
