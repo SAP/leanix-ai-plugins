@@ -17,6 +17,7 @@ All skills below ship inside the `sap-leanix` plugin. Installing the plugin make
 | [automations-toolkit](skills/automations-toolkit/)   | Build, debug, and deploy LeanIX automation scripts |
 | [calculations-toolkit](skills/calculations-toolkit/) | Create, debug, and manage calculations             |
 | [compose-diagram](skills/compose-diagram/)           | Create and edit LeanIX diagrams                    |
+| [fact-sheet-search](skills/fact-sheet-search/)       | Search, filter, count, and look up LeanIX fact sheets |
 
 ## Requirements and Setup
 
