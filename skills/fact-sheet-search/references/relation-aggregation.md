@@ -2,7 +2,7 @@
 
 Load for grouped counts, thresholds, rankings, or target-side predicates over relation chains: providers used by more than N applications, capabilities supported by an application set, most critical provider, or apps linked to capabilities with a classification.
 
-**Execution:** use `mcp__leanix__execute_code`; resolve group/target IDs, confirm relation keys from context/filterOptions, fetch one/two hops, join/dedupe in code, aggregate by the requested grouping entity, and return only the requested answer type. **Pagination shape:** when paginating a large source type, select only `id` plus the relation-edge fields needed for the join (relation connection with target `factSheet { id }` and any edge fields used for filtering); do not select `displayName` or `type` on every paginated row. Fetch display fields for the final answer rows only, using a targeted `filter.ids` query after joining/deduping. For large workspaces, prefer a two-phase approach: identify candidate groups/targets first, then refine with chunked joins rather than paginating every source and bridge edge in one pass.
+**Execution:** use `mcp__leanix__execute_code`; resolve group/target IDs, confirm relation keys from context/filterOptions, fetch one/two hops, join/dedupe in code, aggregate by the requested grouping entity, and return only the requested answer type. Chunk relation-facet `keys` arrays when a resolved target set is large (≤100 IDs/call; see the `paginate()` contract). **Pagination shape:** when paginating a large source type, select only `id` plus the relation-edge fields needed for the join (relation connection with target `factSheet { id }` and any edge fields used for filtering); do not select `displayName` or `type` on every paginated row. Fetch display fields for the final answer rows only, using a targeted `filter.ids` query after joining/deduping. For large workspaces, prefer a two-phase approach: identify candidate groups/targets first, then refine with chunked joins rather than paginating every source and bridge edge in one pass.
 
 ## `paginate()` contract
 
@@ -20,6 +20,8 @@ Omitting `totalCount` or `pageInfo { hasNextPage endCursor }` causes an immediat
 Return shape: `{ items, totalCount, pages, complete }` — `complete` is `true` when `items.length >= totalCount`.
 
 Optional third argument `{ maxPages: N }` caps the number of pages fetched (useful for probes or bounded traversals). Example: `await paginate(query, {}, { maxPages: 1 })` fetches only the first page.
+
+**Chunk `keys` in `paginate()` too.** Chunk a relation-facet `keys` array (~≤100 IDs/call) and paginate each chunk, merging/deduping — never inline a large array into the query string; an oversized `keys` array triggers a server-side "unexpected error".
 
 ## Relation-count semantics
 
@@ -89,9 +91,10 @@ results = dedupe(sourceRows)
 return { targetCount: qualifyingTargets.length, count: results.length, results }
 ```
 
-Compact outside-hierarchy-target shape:
+Compact outside-hierarchy-target shape. Chunk `targetIds` (~≤100), paginate each chunk, merge/dedupe.
 
 ```js
+const chunks = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }, (_, index) => arr.slice(index * size, (index + 1) * size));
 const excludedRoot = "Resolved Root";
 const capabilitiesQ = `query($after:String){ allFactSheets(first:200, after:$after, filter:{responseOptions:{maxFacetDepth:5}
   facetFilters:[{facetKey:"FactSheetTypes", operator:OR, keys:["BusinessCapability"]}]}){totalCount pageInfo{hasNextPage endCursor} edges{node{id displayName type}}} }`;
@@ -100,10 +103,17 @@ const excludedPrefix = `${excludedRoot} /`;
 const targetIds = capabilities
   .filter((capability) => capability.displayName !== excludedRoot && !(capability.displayName || "").startsWith(excludedPrefix))
   .map((capability) => capability.id);
-const query = `query($after:String){ allFactSheets(first:200, after:$after, filter:{responseOptions:{maxFacetDepth:5}
-  facetFilters:[{facetKey:"FactSheetTypes", operator:OR, keys:["Application"]},{facetKey:"relApplicationToBusinessCapability", operator:OR, keys:${JSON.stringify(targetIds)}}]}){
+const query = `query($after:String, $keys:[String!]!){ allFactSheets(first:200, after:$after, filter:{responseOptions:{maxFacetDepth:5}
+  facetFilters:[{facetKey:"FactSheetTypes", operator:OR, keys:["Application"]},{facetKey:"relApplicationToBusinessCapability", operator:OR, keys:$keys}]}){
   totalCount pageInfo{hasNextPage endCursor} edges{node{id displayName type}} } }`;
-const { items: results, complete } = targetIds.length ? await paginate(query, {}) : { items: [], complete: true };
+const resultsById = new Map();
+let complete = true;
+for (const chunk of chunks(targetIds, 100)) {
+  const page = await paginate(query, { keys: chunk });
+  complete = complete && page.complete;
+  for (const row of page.items) resultsById.set(row.id, row);
+}
+const results = [...resultsById.values()];
 return { excludedRoot, targetCount: targetIds.length, complete, results };
 ```
 

@@ -18,6 +18,10 @@ Confirm subscription roles and source fact-sheet types through workspace context
 | `keys:["__missing__"]` + `subscriptionFilter` + `NOR` | Has that subscription type/role |
 | bare `__missing__` without `subscriptionFilter` | No subscriptions at all |
 
+`subscriptions` is not a valid `mcp__leanix__filter_inventory` facet key; subscription filtering uses the `Subscriptions` facet with `subscriptionFilter`, or `mcp__leanix__execute_code` + `allSubscriptionRoles` for role discovery.
+
+For "my" or current-user ownership, filter the `Subscriptions` facet with `keys:["__me__"]` directly; do not try to resolve the current user with a separate tool, and do not call any current-user/identity tool from inside `mcp__leanix__execute_code` — none is available there. `mcp__leanix__search_users` (named-person lookup) is read-only and may be called inside `mcp__leanix__execute_code`, but resolving it once outside and passing the `userId` into the sandbox is cheaper.
+
 For a named person, resolve the user once with `mcp__leanix__search_users`, then query the `Subscriptions` facet with `subscriptionFilter:{type:RESPONSIBLE}`. Person lookup is workspace data, not tool discovery; skip no-op/safeguard/catalog calls and use the named user/inventory tools already available in the workflow. If the user asks for a named role such as Application Owner, resolve that role first and include `roleId`. If the user only says "responsible", do not add a role ID; the word names the RESPONSIBLE subscription type.
 
 Do not inspect guessed `subscriptions.role` or `subscriptions.userId` fields on fact-sheet nodes unless a tool result confirms their shape. Do not hardcode user IDs or role IDs from another workspace.
@@ -61,7 +65,7 @@ Example compact result shape for ambiguous missing-owner questions: `{ interpret
 
 ## Minimal subscription shapes
 
-**Before building any `subscriptionFilter` argument**, confirm the exact input type shape via `__type(name:"SubscriptionFilterInput") { inputFields { name type { kind name ofType { kind name } } } }` introspection inside `mcp__leanix__execute_code`, or from `include_schema=true` on the initial `mcp__leanix__get_workspace_context`. Do not construct the argument from memory — the accepted fields and their types must be confirmed from the live schema. Note: `facetKey` is a field on the returned `FacetResult` response object, not an argument to `filterOptions { facets { ... } }`; do not pass it as an argument.
+**Before building any `subscriptionFilter` argument**, confirm the exact input type shape via `__type(name:"SubscriptionFacetFilterInput") { inputFields { name type { kind name ofType { kind name } } } }` introspection inside `mcp__leanix__execute_code`, or from `include_schema=true` on the initial `mcp__leanix__get_workspace_context`. The facet `subscriptionFilter` takes `SubscriptionFacetFilterInput` (`roleId`, `type`) — not `SubscriptionFilterInput` (`id`, `type`, `userId`), which is a different type; do not use `id` in place of `roleId`. The `type` field is a `SubscriptionType` enum; its valid values are returned by the same introspection or SDL — do not guess them. Do not construct the argument from memory — the accepted fields and their types must be confirmed from the live schema. Note: `facetKey` is a field on the returned `FacetResult` response object, not an argument to `filterOptions { facets { ... } }`; do not pass it as an argument.
 
 ```text
 role discovery: allSubscriptionRoles(filter:{factSheetType:Application}) { edges { node { id name subscriptionType } } }

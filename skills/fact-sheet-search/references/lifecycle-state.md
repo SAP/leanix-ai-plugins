@@ -38,3 +38,17 @@ Broken quality seal, rejected approval, and `DataQuality` findings are different
 ## Lifecycle data-quality quirks
 
 `__missing__` is valid only for relation and subscription facets, not the `lifecycle` facet. For apps missing lifecycle data, do not query `lifecycle` with `keys:["__missing__"]`; inspect `filterOptions` for the `DataQuality` sentinel (such as `_noLifecycle_`) and use the exposed key. Do not invent `DataQuality` keys.
+
+Minimal two-step shape for "apps with no lifecycle" / "missing lifecycle" queries:
+
+```text
+Step 1 — discover the sentinel:
+mcp__leanix__filter_inventory allFactSheets with FactSheetTypes=["Application"], first:0,
+  filterOptions to get facets for "DataQuality" → inspect keys for a _noLifecycle_ sentinel
+
+Step 2 — filter by it:
+mcp__leanix__filter_inventory allFactSheets with FactSheetTypes=["Application"],
+  facetFilters: [{facetKey:"DataQuality", operator:OR, keys:["_noLifecycle_"]}]
+```
+
+If the sentinel key differs from `_noLifecycle_` in this workspace, use whatever key `filterOptions` returned in step 1. For count-only questions, `first:0` with `totalCount` on the step-2 call is sufficient.
